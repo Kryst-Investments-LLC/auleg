@@ -9,10 +9,10 @@ services:
       - "4000:4000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=${DATABASE_URL:-file:./dev.db}
-      - JWT_SECRET=${JWT_SECRET:-change-this-to-a-secure-random-string-in-production}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-auleg}:${POSTGRES_PASSWORD:-auleg}@postgres:5432/${POSTGRES_DB:-auleg}
+      - JWT_SECRET=${JWT_SECRET}
       - PORT=4000
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+      - CORS_ORIGIN=${CORS_ORIGIN:-https://www.auleg.com}
       # AI Provider (optional)
       - AI_PROVIDER=${AI_PROVIDER:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
@@ -30,27 +30,11 @@ services:
       - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-Auleg}
     volumes:
       - audit-data:/app/server/uploads
-      - db-data:/app/server
     depends_on:
       postgres:
-        condition: service_started
-        required: false
+        condition: service_healthy
     restart: unless-stopped
 
-  dashboard:
-    build:
-      context: ./dashboard
-      dockerfile: Dockerfile
-      args:
-        REACT_APP_API_URL: ${API_URL:-http://localhost:4000}
-    ports:
-      - "3000:80"
-    depends_on:
-      - api
-    restart: unless-stopped
-
-  # Uncomment to use PostgreSQL instead of SQLite:
-  # Set DATABASE_URL=postgresql://auleg:auleg@postgres:5432/auleg in .env
   postgres:
     image: postgres:16-alpine
     environment:
@@ -61,11 +45,13 @@ services:
       - "5432:5432"
     volumes:
       - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-auleg}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
-    profiles:
-      - postgresql
 
 volumes:
   audit-data:
-  db-data:
   pg-data:

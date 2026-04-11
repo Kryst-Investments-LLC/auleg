@@ -1,9 +1,6 @@
 FROM node:20-slim
 
-RUN apt-get update && apt-get install -y wget apt-transport-https software-properties-common \
-    && wget -q https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb \
-    && dpkg -i packages-microsoft-prod.deb \
-    && apt-get update && apt-get install -y powershell \
+RUN apt-get update && apt-get install -y openssl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -20,6 +17,8 @@ WORKDIR /app/server
 EXPOSE 4000
 
 ENV NODE_ENV=production
-ENV DATABASE_URL=file:./dev.db
+
+# DATABASE_URL must be provided at runtime
+# e.g. postgresql://user:pass@host:5432/auleg
 
 CMD ["node", "index.js"]

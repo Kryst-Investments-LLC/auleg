@@ -27,7 +27,7 @@ Thumbs.db
 .idea/
 
 # Prisma
-server/prisma/migrations/
+# server/prisma/migrations/ — tracked for PostgreSQL migrations
 
 # Logs
 *.log
