@@ -5,6 +5,9 @@ RUN apt-get update && apt-get install -y openssl ca-certificates \
 
 WORKDIR /app
 
+# Cache bust on code changes
+ARG CACHEBUST=1
+
 COPY server/package*.json ./server/
 RUN cd server && npm ci --production
 
