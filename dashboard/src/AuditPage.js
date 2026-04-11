@@ -17,7 +17,7 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
-export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, onSettings, onAnalytics, onBilling, onApiExplorer, onLegal }) {
+export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, onSettings, onAnalytics, onBilling, onApiExplorer, onLegal, onAdvanced }) {
   const [audits, setAudits] = useState([]);
   const [selectedAudit, setSelectedAudit] = useState(null);
   const [report, setReport] = useState(null);
@@ -188,6 +188,7 @@ export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, o
           {onBilling && <button className="dash-nav-btn" onClick={onBilling}>Billing</button>}
           {onApiExplorer && <button className="dash-nav-btn" onClick={onApiExplorer}>API</button>}
           {onLegal && <button className="dash-nav-btn" onClick={onLegal}>Legal Agent</button>}
+          {onAdvanced && <button className="dash-nav-btn" onClick={onAdvanced}>Advanced</button>}
           {onAdmin && <button className="dash-nav-btn" onClick={onAdmin}>Admin</button>}
         </div>
         <div className="dashboard-nav-right">

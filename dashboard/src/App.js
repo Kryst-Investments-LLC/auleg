@@ -11,6 +11,7 @@ import AnalyticsPage from './AnalyticsPage';
 import BillingPage from './BillingPage';
 import ApiExplorerPage from './ApiExplorerPage';
 import LegalAgentPage from './LegalAgentPage';
+import AdvancedPage from './AdvancedPage';
 import LandingPage from './LandingPage';
 import OnboardingWizard from './OnboardingWizard';
 
@@ -97,6 +98,9 @@ function App() {
   if (page === 'legal') {
     return <LegalAgentPage onBack={() => setPage('audits')} />;
   }
+  if (page === 'advanced') {
+    return <AdvancedPage onBack={() => setPage('audits')} />;
+  }
 
   return (
     <AuditPage
@@ -110,6 +114,7 @@ function App() {
       onBilling={() => setPage('billing')}
       onApiExplorer={() => setPage('api-explorer')}
       onLegal={() => setPage('legal')}
+      onAdvanced={() => setPage('advanced')}
     />
   );
 }

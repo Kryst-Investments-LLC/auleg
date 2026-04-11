@@ -35,6 +35,10 @@ const billingRoutes = require('./routes/billing');
 const aiRoutes = require('./routes/ai');
 const publicApiV1 = require('./routes/public-api-v1');
 const legalRoutes = require('./routes/legal');
+const coreAdvancedRoutes = require('./routes/core-advanced');
+const workflowRoutes = require('./routes/workflow');
+const reportingRoutes = require('./routes/reporting');
+const integrationsRoutes = require('./routes/integrations');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -129,6 +133,10 @@ app.use('/api/preferences', preferenceRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/legal', legalRoutes);
+app.use('/api/core', coreAdvancedRoutes);
+app.use('/api/workflow', workflowRoutes);
+app.use('/api/reporting', reportingRoutes);
+app.use('/api/integrations', integrationsRoutes);
 app.use('/api/v1', publicApiV1);
 
 // 404 handler

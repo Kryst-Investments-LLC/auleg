@@ -573,3 +573,244 @@ export async function legalDraftClause(clauseType, regulation, currentLanguage) 
 export async function legalSeedDatabase() {
   return apiFetch('/legal/seed', { method: 'POST' });
 }
+
+// ─── Core Advanced API ────────────────────────────────
+
+export async function runRedlineAnalysis(auditId, text) {
+  return apiFetch(`/core/redline/${auditId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text })
+  });
+}
+
+export async function getRedlines(auditId, filters) {
+  const qs = filters ? '?' + new URLSearchParams(filters).toString() : '';
+  return apiFetch(`/core/redline/${auditId}${qs}`);
+}
+
+export async function updateRedlineStatus(id, status, modifiedText) {
+  return apiFetch(`/core/redline/${id}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status, modifiedText })
+  });
+}
+
+export async function applyRedlines(auditId) {
+  return apiFetch(`/core/redline/${auditId}/apply`, { method: 'POST' });
+}
+
+export async function getJurisdictions(auditId) {
+  return apiFetch(`/core/jurisdictions/${auditId}`);
+}
+
+export async function getGapMatrix(auditId) {
+  return apiFetch(`/core/gap-matrix/${auditId}`);
+}
+
+export async function getConfidenceScores(auditId) {
+  return apiFetch(`/core/confidence/${auditId}`);
+}
+
+// ─── Workflow API ─────────────────────────────────────
+
+export async function createNegotiation(data) {
+  return apiFetch('/workflow/negotiations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+}
+
+export async function getNegotiations() {
+  return apiFetch('/workflow/negotiations');
+}
+
+export async function getNegotiation(id) {
+  return apiFetch(`/workflow/negotiations/${id}`);
+}
+
+export async function addNegotiationRound(id, data) {
+  return apiFetch(`/workflow/negotiations/${id}/rounds`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+}
+
+export async function updateNegotiationStatus(id, status) {
+  return apiFetch(`/workflow/negotiations/${id}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status })
+  });
+}
+
+export async function updateNegotiationClause(id, data) {
+  return apiFetch(`/workflow/negotiation-clauses/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+}
+
+export async function createApprovalChain(auditId, steps) {
+  return apiFetch('/workflow/approvals', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ auditId, steps })
+  });
+}
+
+export async function getApprovalChains(auditId) {
+  return apiFetch(`/workflow/approvals/${auditId}`);
+}
+
+export async function processApprovalStep(stepId, decision, comments) {
+  return apiFetch(`/workflow/approvals/steps/${stepId}/decide`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ decision, comments })
+  });
+}
+
+export async function createCounterpartyLink(data) {
+  return apiFetch('/workflow/counterparty/links', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+}
+
+export async function getCounterpartyLinks() {
+  return apiFetch('/workflow/counterparty/links');
+}
+
+export async function getVendorAssessments() {
+  return apiFetch('/workflow/vendor-assessments');
+}
+
+export async function getVendorAssessment(id) {
+  return apiFetch(`/workflow/vendor-assessments/${id}`);
+}
+
+export async function createVendorAssessment(name) {
+  return apiFetch('/workflow/vendor-assessments', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name })
+  });
+}
+
+export async function getBundles() {
+  return apiFetch('/workflow/bundles');
+}
+
+export async function getBundle(id) {
+  return apiFetch(`/workflow/bundles/${id}`);
+}
+
+// ─── Reporting API ────────────────────────────────────
+
+export async function getBoardReport(auditId) {
+  return apiFetch(`/reporting/board-report/${auditId}`);
+}
+
+export async function issueCertificate(data) {
+  return apiFetch('/reporting/certificates', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+}
+
+export async function getCertificates() {
+  return apiFetch('/reporting/certificates');
+}
+
+export async function verifyCertificate(certNumber) {
+  return apiFetch(`/reporting/verify/${certNumber}`);
+}
+
+export async function getEvidenceTrail(auditId) {
+  return apiFetch(`/reporting/evidence/${auditId}`);
+}
+
+export async function getEvidencePack(auditId) {
+  return apiFetch(`/reporting/evidence-pack/${auditId}`);
+}
+
+export async function getBenchmarks() {
+  return apiFetch('/reporting/benchmarks');
+}
+
+export async function refreshBenchmarks() {
+  return apiFetch('/reporting/benchmarks/refresh', { method: 'POST' });
+}
+
+export async function autoRemediate(auditId) {
+  return apiFetch(`/reporting/auto-remediate/${auditId}`, { method: 'POST' });
+}
+
+// ─── Integrations API ─────────────────────────────────
+
+export async function getIntegrations() {
+  return apiFetch('/integrations');
+}
+
+export async function saveIntegration(data) {
+  return apiFetch('/integrations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+}
+
+export async function deleteIntegration(id) {
+  return apiFetch(`/integrations/${id}`, { method: 'DELETE' });
+}
+
+export async function testIntegrationNotify() {
+  return apiFetch('/integrations/test-notify', { method: 'POST' });
+}
+
+export async function getCustomFrameworks() {
+  return apiFetch('/integrations/frameworks');
+}
+
+export async function createCustomFramework(data) {
+  return apiFetch('/integrations/frameworks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+}
+
+export async function deleteCustomFramework(id) {
+  return apiFetch(`/integrations/frameworks/${id}`, { method: 'DELETE' });
+}
+
+export async function getRegulatoryAlerts(unread) {
+  return apiFetch(`/integrations/alerts${unread ? '?unread=true' : ''}`);
+}
+
+export async function generateRegulatoryAlerts() {
+  return apiFetch('/integrations/alerts/generate', { method: 'POST' });
+}
+
+export async function markAlertRead(id) {
+  return apiFetch(`/integrations/alerts/${id}/read`, { method: 'PATCH' });
+}
+
+export async function getSsoConfig() {
+  return apiFetch('/integrations/sso');
+}
+
+export async function saveSsoConfig(data) {
+  return apiFetch('/integrations/sso', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+}

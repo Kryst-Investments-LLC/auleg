@@ -296,3 +296,275 @@ model LegalChat {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// ─── Redlining & Inline Suggestions ──────────────────
+
+model Redline {
+  id           String   @id @default(uuid())
+  auditId      String
+  clause       String   // clause type e.g. "breach_notification"
+  originalText String   // exact sentence/paragraph from the DPA
+  suggestedText String  // AI-suggested replacement
+  explanation  String   // why the change is needed
+  severity     String   @default("medium") // low, medium, high, critical
+  status       String   @default("pending") // pending, accepted, rejected, modified
+  confidence   Float    @default(0.8)
+  regulation   String?  // applicable regulation
+  article      String?  // specific article reference
+  lineStart    Int?     // approximate line in original doc
+  lineEnd      Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ─── Multi-File Audit (DPA + Annexes) ─────────────────
+
+model AuditBundle {
+  id           String   @id @default(uuid())
+  name         String
+  status       String   @default("pending") // pending, processing, complete, failed
+  primaryAuditId String? // main DPA audit ID
+  consolidatedReport String? // merged JSON report
+  consolidatedScore  Float?
+  consolidatedRisk   String?
+  userId       String
+  orgId        String?
+  files        AuditBundleFile[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model AuditBundleFile {
+  id        String   @id @default(uuid())
+  bundleId  String
+  bundle    AuditBundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  auditId   String?  // linked Audit record
+  fileName  String
+  fileType  String   @default("annex") // primary, annex, schedule, appendix
+  filePath  String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+// ─── Negotiation Workflow ─────────────────────────────
+
+model Negotiation {
+  id           String   @id @default(uuid())
+  auditId      String
+  title        String
+  counterparty String   // company name
+  status       String   @default("draft") // draft, sent, in_review, countered, accepted, rejected
+  currentRound Int      @default(1)
+  userId       String
+  orgId        String?
+  rounds       NegotiationRound[]
+  clauses      NegotiationClause[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model NegotiationRound {
+  id            String   @id @default(uuid())
+  negotiationId String
+  negotiation   Negotiation @relation(fields: [negotiationId], references: [id], onDelete: Cascade)
+  roundNumber   Int
+  submittedBy   String   // "us" or "counterparty"
+  auditId       String?  // audit of this round's version
+  notes         String?
+  filePath      String?
+  createdAt     DateTime @default(now())
+}
+
+model NegotiationClause {
+  id            String   @id @default(uuid())
+  negotiationId String
+  negotiation   Negotiation @relation(fields: [negotiationId], references: [id], onDelete: Cascade)
+  clause        String   // clause type
+  status        String   @default("open") // open, agreed, disputed, removed
+  ourPosition   String?
+  theirPosition String?
+  agreedText    String?
+  notes         String?
+  updatedAt     DateTime @updatedAt
+}
+
+// ─── Approval Chains ──────────────────────────────────
+
+model ApprovalChain {
+  id           String   @id @default(uuid())
+  auditId      String
+  title        String
+  status       String   @default("pending") // pending, in_progress, approved, rejected
+  orgId        String?
+  steps        ApprovalStep[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ApprovalStep {
+  id            String   @id @default(uuid())
+  chainId       String
+  chain         ApprovalChain @relation(fields: [chainId], references: [id], onDelete: Cascade)
+  stepOrder     Int
+  role          String   // legal_reviewer, dpo, management
+  assignedTo    String?  // userId
+  assignedEmail String?
+  status        String   @default("pending") // pending, approved, rejected, skipped
+  comments      String?
+  decidedAt     DateTime?
+  createdAt     DateTime @default(now())
+}
+
+// ─── Counterparty Portal ──────────────────────────────
+
+model CounterpartyLink {
+  id           String   @id @default(uuid())
+  token        String   @unique
+  auditId      String?
+  negotiationId String?
+  companyName  String
+  contactEmail String
+  status       String   @default("pending") // pending, submitted, reviewed
+  submittedFile String?
+  submittedAuditId String?
+  expiresAt    DateTime
+  userId       String   // who created the link
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ─── Bulk Vendor Assessment ───────────────────────────
+
+model VendorAssessment {
+  id           String   @id @default(uuid())
+  name         String   // e.g. "Q2 2026 Vendor Review"
+  status       String   @default("pending") // pending, processing, complete
+  totalVendors Int      @default(0)
+  completedVendors Int  @default(0)
+  avgRiskScore Float?
+  highRiskCount Int     @default(0)
+  vendors      VendorEntry[]
+  userId       String
+  orgId        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model VendorEntry {
+  id            String   @id @default(uuid())
+  assessmentId  String
+  assessment    VendorAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  vendorName    String
+  auditId       String?  // linked Audit
+  status        String   @default("pending") // pending, auditing, complete, failed
+  riskScore     Float?
+  riskLevel     String?
+  fileName      String
+  filePath      String
+  createdAt     DateTime @default(now())
+}
+
+// ─── Custom Regulation Profiles ───────────────────────
+
+model CustomFramework {
+  id           String   @id @default(uuid())
+  name         String   // e.g. "HIPAA", "PCI-DSS"
+  description  String?
+  clauses      String   // JSON array of {name, description, weight, required}
+  orgId        String?
+  userId       String
+  isPublic     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ─── Regulatory Change Alerts ─────────────────────────
+
+model RegulatoryAlert {
+  id           String   @id @default(uuid())
+  type         String   // enforcement, guidance, regulation_change
+  title        String
+  summary      String
+  regulation   String   // GDPR, CCPA, etc. 
+  affectedClauses String @default("") // comma-separated
+  severity     String   @default("info") // info, warning, critical
+  sourceUrl    String?
+  read         Boolean  @default(false)
+  userId       String
+  createdAt    DateTime @default(now())
+}
+
+// ─── Integration Configs ──────────────────────────────
+
+model IntegrationConfig {
+  id           String   @id @default(uuid())
+  provider     String   // slack, teams, ironclad, juro, onetrust, vanta
+  type         String   // notification, clm, grc
+  config       String   // JSON: {webhookUrl, channel, apiKey, etc.}
+  active       Boolean  @default(true)
+  userId       String
+  orgId        String?
+  lastSyncAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ─── SSO/SAML Configs ─────────────────────────────────
+
+model SsoConfig {
+  id           String   @id @default(uuid())
+  orgId        String   @unique
+  provider     String   // okta, azure_ad, google, onelogin
+  entityId     String
+  ssoUrl       String
+  certificate  String   // X.509 cert
+  metadataUrl  String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ─── Clause Benchmarks ───────────────────────────────
+
+model ClauseBenchmark {
+  id           String   @id @default(uuid())
+  clause       String   // clause type
+  avgScore     Float
+  medianScore  Float
+  p25Score     Float    // 25th percentile
+  p75Score     Float    // 75th percentile
+  sampleSize   Int
+  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now())
+}
+
+// ─── Compliance Certificates ──────────────────────────
+
+model ComplianceCertificate {
+  id           String   @id @default(uuid())
+  auditId      String
+  certificateNumber String @unique
+  issuedTo     String   // company name
+  issuedBy     String   // auditor name
+  overallScore Float
+  frameworks   String   // comma-separated: GDPR,CCPA
+  validFrom    DateTime
+  validUntil   DateTime
+  status       String   @default("active") // active, revoked, expired
+  pdfPath      String?
+  userId       String
+  createdAt    DateTime @default(now())
+}
+
+// ─── Audit Evidence Trail ─────────────────────────────
+
+model AuditEvidence {
+  id           String   @id @default(uuid())
+  auditId      String
+  action       String   // created, reviewed, redline_accepted, approved, certificate_issued
+  actor        String   // userId or email
+  actorName    String?
+  detail       String?  // description of what happened
+  metadata     String?  // JSON: {clause, oldScore, newScore, etc.}
+  createdAt    DateTime @default(now())
+}
