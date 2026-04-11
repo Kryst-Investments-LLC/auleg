@@ -517,3 +517,59 @@ export async function v1ZapierTrigger(since) {
     body: JSON.stringify({ since })
   });
 }
+
+// ─── Legal API ────────────────────────────────────────
+
+export async function legalGetRegulations() {
+  return apiFetch('/legal/regulations');
+}
+
+export async function legalGetRegulation(code) {
+  return apiFetch(`/legal/regulations/${code}`);
+}
+
+export async function legalSearchArticles(query) {
+  return apiFetch(`/legal/articles/search?q=${encodeURIComponent(query)}`);
+}
+
+export async function legalGetEnforcement(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return apiFetch(`/legal/enforcement${qs ? '?' + qs : ''}`);
+}
+
+export async function legalGetGuidance(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return apiFetch(`/legal/guidance${qs ? '?' + qs : ''}`);
+}
+
+export async function legalGetTrends() {
+  return apiFetch('/legal/trends');
+}
+
+export async function legalChat(message, chatId, auditId) {
+  return apiFetch('/legal/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, chatId, auditId })
+  });
+}
+
+export async function legalGetChats() {
+  return apiFetch('/legal/chats');
+}
+
+export async function legalGetChat(id) {
+  return apiFetch(`/legal/chats/${id}`);
+}
+
+export async function legalDraftClause(clauseType, regulation, currentLanguage) {
+  return apiFetch('/legal/draft', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ clauseType, regulation, currentLanguage })
+  });
+}
+
+export async function legalSeedDatabase() {
+  return apiFetch('/legal/seed', { method: 'POST' });
+}

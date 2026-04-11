@@ -540,5 +540,6 @@ module.exports = {
   generateRemediationPlan,
   parseNaturalLanguageQuery,
   explainRisk,
+  llmComplete,
   CLAUSE_KNOWLEDGE
 };

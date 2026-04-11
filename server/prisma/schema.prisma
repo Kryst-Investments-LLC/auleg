@@ -226,3 +226,73 @@ model WebhookDelivery {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
+
+// ─── Legal Knowledge Base ─────────────────────────────
+
+model Regulation {
+  id           String   @id @default(uuid())
+  code         String   @unique // GDPR, CCPA, LGPD, POPIA, DPDPA, DSA, AIA
+  name         String          // General Data Protection Regulation
+  jurisdiction String          // EU, US-CA, Brazil, South Africa, India
+  effectiveDate DateTime?
+  lastAmended  DateTime?
+  summary      String          // Brief description
+  url          String?         // Official text URL
+  articles     RegulationArticle[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model RegulationArticle {
+  id           String   @id @default(uuid())
+  regulationId String
+  regulation   Regulation @relation(fields: [regulationId], references: [id], onDelete: Cascade)
+  articleNum   String          // "28", "32(1)(a)"
+  title        String          // "Processor obligations"
+  content      String          // Full article text
+  summary      String          // Plain-English summary
+  relevance    String          // How it relates to DPA auditing
+  relatedClauses String @default("") // comma-separated: audit_rights,breach_notification
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model EnforcementAction {
+  id           String   @id @default(uuid())
+  authority    String          // ICO, CNIL, DPC, BfDI, AEPD, Garante
+  country      String          // UK, France, Ireland, Germany, Spain, Italy
+  date         DateTime
+  entity       String          // Company fined
+  fineAmount   Float?          // In EUR
+  regulation   String          // GDPR, CCPA, etc.
+  articles     String          // comma-separated violated articles
+  summary      String          // What happened
+  impact       String          // How this affects DPA clause analysis
+  clauseImpact String @default("") // comma-separated: breach_notification,cross_border_transfer
+  sourceUrl    String?
+  severity     String   @default("medium") // low, medium, high, critical
+  createdAt    DateTime @default(now())
+}
+
+model RegulatoryGuidance {
+  id           String   @id @default(uuid())
+  authority    String          // EDPB, ICO, CNIL, etc.
+  title        String
+  date         DateTime
+  regulation   String
+  summary      String
+  implications String          // What it means for DPA auditing
+  clauseImpact String @default("") // affected clauses
+  sourceUrl    String?
+  createdAt    DateTime @default(now())
+}
+
+model LegalChat {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String   @default("New conversation")
+  messages  String   // JSON array of {role, content, timestamp}
+  context   String?  // JSON: linked auditId, clauseName, etc.
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
