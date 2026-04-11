@@ -1,0 +1,269 @@
+// PostgreSQL Prisma schema for Auleg
+// Usage: Copy this file to schema.prisma when migrating to PostgreSQL
+// Then run: npx prisma migrate dev --name init
+//
+// DATABASE_URL=postgresql://user:pass@host:5432/auleg
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("auditor")
+  orgId     String?
+  org       Org?     @relation(fields: [orgId], references: [id])
+  audits    Audit[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([orgId])
+}
+
+model Org {
+  id        String   @id @default(uuid())
+  name      String
+  plan      String   @default("free")
+  users     User[]
+  audits    Audit[]
+  billing   BillingAccount?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Audit {
+  id               String   @id @default(uuid())
+  contractName     String
+  contractPath     String
+  status           String   @default("pending")
+  clausesDetected  Int      @default(0)
+  gapsFound        Int      @default(0)
+  overallRisk      String?
+  riskScore        Float?
+  reportJson       String?  @db.Text
+  version          Int      @default(1)
+  parentId         String?
+  tags             String   @default("")
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  orgId            String?
+  org              Org?     @relation(fields: [orgId], references: [id])
+  shares           AuditShare[]
+  comments         AuditComment[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([userId])
+  @@index([orgId])
+  @@index([status])
+  @@index([overallRisk])
+  @@index([createdAt])
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  action    String
+  detail    String?
+  userId    String?
+  userEmail String?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model Webhook {
+  id        String   @id @default(uuid())
+  url       String
+  events    String
+  secret    String
+  active    Boolean  @default(true)
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model AuditTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  clauseTypes String
+  frameworks  String
+  userId      String
+  orgId       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  data      String?
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+model ApiKey {
+  id        String   @id @default(uuid())
+  name      String
+  keyHash   String   @unique
+  prefix    String
+  scopes    String   @default("audits:read,audits:write")
+  lastUsed  DateTime?
+  expiresAt DateTime?
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model AuditShare {
+  id        String   @id @default(uuid())
+  auditId   String
+  audit     Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  sharedWith String
+  permission String  @default("view")
+  token     String   @unique
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([auditId])
+  @@index([sharedWith])
+}
+
+model ScheduledAudit {
+  id           String   @id @default(uuid())
+  name         String
+  contractPath String
+  contractName String
+  cron         String
+  active       Boolean  @default(true)
+  lastRun      DateTime?
+  nextRun      DateTime?
+  userId       String
+  templateId   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([active, nextRun])
+}
+
+model ScoringRule {
+  id        String   @id @default(uuid())
+  name      String
+  clause    String
+  condition String
+  weight    Float    @default(1.0)
+  action    String   @default("flag")
+  userId    String
+  orgId     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([clause])
+}
+
+model AuditComment {
+  id        String   @id @default(uuid())
+  auditId   String
+  audit     Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  userId    String
+  userEmail String
+  userName  String?
+  clause    String?
+  body      String   @db.Text
+  parentId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([auditId])
+  @@index([userId])
+}
+
+model UserPreference {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  emailDigest         String   @default("none")
+  notifyAuditComplete Boolean  @default(true)
+  notifyAuditFailed   Boolean  @default(true)
+  notifyShare         Boolean  @default(true)
+  defaultTemplateId   String?
+  theme               String   @default("dark")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model BillingAccount {
+  id              String   @id @default(uuid())
+  orgId           String   @unique
+  org             Org      @relation(fields: [orgId], references: [id])
+  stripeCustomerId String?
+  plan            String   @default("free")
+  status          String   @default("active")
+  trialEndsAt     DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  auditsUsed      Int      @default(0)
+  auditsLimit     Int      @default(10)
+  usersLimit      Int      @default(3)
+  storageUsedMb   Float    @default(0)
+  storageLimitMb  Float    @default(100)
+  apiCallsUsed    Int      @default(0)
+  apiCallsLimit   Int      @default(100)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model BillingEvent {
+  id        String   @id @default(uuid())
+  orgId     String
+  type      String
+  detail    String?
+  amount    Float?
+  createdAt DateTime @default(now())
+
+  @@index([orgId])
+  @@index([createdAt])
+}
+
+model WebhookDelivery {
+  id         String   @id @default(uuid())
+  webhookId  String
+  event      String
+  payload    String   @db.Text
+  status     String   @default("pending")
+  statusCode Int?
+  response   String?  @db.Text
+  attempts   Int      @default(0)
+  nextRetry  DateTime?
+  error      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([webhookId])
+  @@index([status])
+}

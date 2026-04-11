@@ -1,0 +1,27 @@
+DATA PROCESSING AGREEMENT
+
+This Data Processing Agreement ("DPA") is entered into between the parties.
+
+1. PURPOSE AND SCOPE
+The processor shall process personal data only on documented instructions from the controller, including transfers to third countries.
+
+2. SECURITY MEASURES
+The processor shall implement appropriate technical and organizational measures to ensure a level of security appropriate to the risk, including encryption of personal data and regular testing of security measures.
+
+3. BREACH NOTIFICATION
+The processor shall notify the controller without undue delay after becoming aware of a personal data breach, within 72 hours maximum.
+
+4. SUB-PROCESSORS
+The processor shall not engage another processor without prior specific written authorization of the controller. The processor shall maintain a list of approved sub-processors.
+
+5. DATA SUBJECT RIGHTS
+The processor shall assist the controller by appropriate technical and organisational measures for the fulfilment of the controller's obligation to respond to requests for exercising the data subject's rights.
+
+6. AUDIT RIGHTS
+The controller shall have the right to conduct audits, including inspections, of the processor's data processing activities.
+
+7. DATA RETENTION
+Personal data shall be retained only for the duration necessary to fulfill the processing purpose. Upon termination, data shall be deleted or returned within 30 days.
+
+8. TERMINATION
+Either party may terminate this agreement with 30 days written notice. Upon termination, the processor shall cease all processing and return or delete personal data.

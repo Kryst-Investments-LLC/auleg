@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL:-file:./dev.db}
+      - JWT_SECRET=${JWT_SECRET:-change-this-to-a-secure-random-string-in-production}
+      - PORT=4000
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+      # AI Provider (optional)
+      - AI_PROVIDER=${AI_PROVIDER:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-sonnet-4-20250514}
+      # Stripe (optional)
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - STRIPE_PRICE_PRO=${STRIPE_PRICE_PRO:-}
+      - STRIPE_PRICE_ENTERPRISE=${STRIPE_PRICE_ENTERPRISE:-}
+      # SendGrid (optional)
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
+      - EMAIL_FROM=${EMAIL_FROM:-noreply@auleg.com}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-Auleg}
+    volumes:
+      - audit-data:/app/server/uploads
+      - db-data:/app/server
+    depends_on:
+      postgres:
+        condition: service_started
+        required: false
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: ${API_URL:-http://localhost:4000}
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # Uncomment to use PostgreSQL instead of SQLite:
+  # Set DATABASE_URL=postgresql://auleg:auleg@postgres:5432/auleg in .env
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-auleg}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-auleg}
+      - POSTGRES_DB=${POSTGRES_DB:-auleg}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    profiles:
+      - postgresql
+
+volumes:
+  audit-data:
+  db-data:
+  pg-data:

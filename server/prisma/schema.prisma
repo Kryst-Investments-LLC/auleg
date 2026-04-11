@@ -1,0 +1,228 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+//
+// SQLite (default): DATABASE_URL=file:./dev.db
+// PostgreSQL:       DATABASE_URL=postgresql://user:pass@host:5432/auleg
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("auditor") // admin, auditor, viewer
+  orgId     String?
+  org       Org?     @relation(fields: [orgId], references: [id])
+  audits    Audit[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Org {
+  id        String   @id @default(uuid())
+  name      String
+  plan      String   @default("free") // free, pro, enterprise
+  users     User[]
+  audits    Audit[]
+  billing   BillingAccount?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Audit {
+  id               String   @id @default(uuid())
+  contractName     String
+  contractPath     String
+  status           String   @default("pending") // pending, processing, complete, failed
+  clausesDetected  Int      @default(0)
+  gapsFound        Int      @default(0)
+  overallRisk      String?
+  riskScore        Float?
+  reportJson       String?  // full audit_report.json stored as text
+  version          Int      @default(1)
+  parentId         String?  // previous version's audit ID
+  tags             String   @default("") // comma-separated tags
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  orgId            String?
+  org              Org?     @relation(fields: [orgId], references: [id])
+  shares           AuditShare[]
+  comments         AuditComment[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  action    String   // login, register, audit.create, audit.delete, user.update, org.create, export
+  detail    String?
+  userId    String?
+  userEmail String?
+  ip        String?
+  createdAt DateTime @default(now())
+}
+
+model Webhook {
+  id        String   @id @default(uuid())
+  url       String
+  events    String   // comma-separated: audit.complete,audit.failed
+  secret    String   // HMAC signing secret
+  active    Boolean  @default(true)
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuditTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  clauseTypes String   // comma-separated clause types to check
+  frameworks  String   // comma-separated frameworks: GDPR,CCPA,SOC2
+  userId      String
+  orgId       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  type      String   // audit.complete, audit.failed, system, org.invite
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  data      String?  // optional JSON payload (e.g. auditId)
+  userId    String
+  createdAt DateTime @default(now())
+}
+
+model ApiKey {
+  id        String   @id @default(uuid())
+  name      String
+  keyHash   String   @unique // SHA-256 hash of the key
+  prefix    String   // first 8 chars for display
+  scopes    String   @default("audits:read,audits:write") // comma-separated
+  lastUsed  DateTime?
+  expiresAt DateTime?
+  userId    String
+  createdAt DateTime @default(now())
+}
+
+model AuditShare {
+  id        String   @id @default(uuid())
+  auditId   String
+  audit     Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  sharedWith String  // email of the recipient
+  permission String  @default("view") // view, comment
+  token     String   @unique // unique share token for link-based access
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+}
+
+model ScheduledAudit {
+  id           String   @id @default(uuid())
+  name         String
+  contractPath String   // path to stored contract for re-audit
+  contractName String
+  cron         String   // cron expression (e.g. "0 9 * * 1" = every Monday 9am)
+  active       Boolean  @default(true)
+  lastRun      DateTime?
+  nextRun      DateTime?
+  userId       String
+  templateId   String?  // optional audit template to apply
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ScoringRule {
+  id        String   @id @default(uuid())
+  name      String
+  clause    String   // clause type this rule applies to
+  condition String   // e.g. "missing", "weak", "present"
+  weight    Float    @default(1.0) // multiplier for risk score
+  action    String   @default("flag") // flag, boost, reduce
+  userId    String
+  orgId     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuditComment {
+  id        String   @id @default(uuid())
+  auditId   String
+  audit     Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  userId    String
+  userEmail String
+  userName  String?
+  clause    String?  // optional: ties comment to a specific clause
+  body      String
+  parentId  String?  // reply threading
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserPreference {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  emailDigest         String   @default("none") // none, daily, weekly
+  notifyAuditComplete Boolean  @default(true)
+  notifyAuditFailed   Boolean  @default(true)
+  notifyShare         Boolean  @default(true)
+  defaultTemplateId   String?
+  theme               String   @default("dark") // dark, light
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model BillingAccount {
+  id              String   @id @default(uuid())
+  orgId           String   @unique
+  org             Org      @relation(fields: [orgId], references: [id])
+  stripeCustomerId String?  // Stripe customer ID (null for mock/dev)
+  plan            String   @default("free") // free, pro, enterprise
+  status          String   @default("active") // active, past_due, canceled, trialing
+  trialEndsAt     DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  auditsUsed      Int      @default(0)
+  auditsLimit     Int      @default(10) // per month
+  usersLimit      Int      @default(3)
+  storageUsedMb   Float    @default(0)
+  storageLimitMb  Float    @default(100) // MB
+  apiCallsUsed    Int      @default(0)
+  apiCallsLimit   Int      @default(100)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model BillingEvent {
+  id        String   @id @default(uuid())
+  orgId     String
+  type      String   // plan.upgrade, plan.downgrade, usage.audit, usage.api, payment.success, payment.failed
+  detail    String?
+  amount    Float?   // in cents
+  createdAt DateTime @default(now())
+}
+
+model WebhookDelivery {
+  id         String   @id @default(uuid())
+  webhookId  String
+  event      String   // audit.complete, audit.failed, etc.
+  payload    String   // JSON payload sent
+  status     String   @default("pending") // pending, success, failed
+  statusCode Int?
+  response   String?  // truncated response body
+  attempts   Int      @default(0)
+  nextRetry  DateTime?
+  error      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}

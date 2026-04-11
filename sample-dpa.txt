@@ -1,0 +1,29 @@
+1. Purpose of Processing  
+The Processor shall process Customer Personal Data solely for the purpose of delivering the contracted services, including account management, system maintenance, and customer support. No additional processing shall occur without written authorization from the Controller.
+
+2. Subprocessor Controls  
+The Processor may engage subprocessors only with prior written approval from the Controller. The Processor shall ensure that all subprocessors are bound by obligations equivalent to those in this Agreement.
+
+3. Data Subject Rights  
+The Processor shall assist the Controller in responding to requests from data subjects, including access, rectification, erasure, and restriction of processing. Requests shall be forwarded to the Controller without undue delay.
+
+4. Security Measures  
+The Processor shall implement appropriate technical and organizational measures, including encryption at rest, access controls, logging, and regular security assessments.
+
+5. Breach Notification  
+In the event of a personal data breach, the Processor shall notify the Controller without undue delay and no later than 48 hours after becoming aware of the breach. Notifications shall include the nature of the breach, affected data, and mitigation steps.
+
+6. Audit Rights  
+The Controller shall have the right to conduct audits or inspections of the Processor's facilities, systems, and procedures related to the processing of Customer Personal Data.
+
+7. Data Retention and Deletion  
+Upon termination of services, the Processor shall delete or return all Customer Personal Data within 30 days, unless retention is required by law.
+
+8. International Transfers  
+The Processor shall not transfer Customer Personal Data outside the region of origin without implementing appropriate safeguards and notifying the Controller.
+
+9. Confidentiality  
+All personnel authorized to process Customer Personal Data shall be bound by confidentiality obligations.
+
+10. Incident Response  
+The Processor shall maintain an incident response plan and provide the Controller with a summary of incident handling procedures upon request.

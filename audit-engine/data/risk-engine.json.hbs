@@ -1,0 +1,20 @@
+{
+  "name": "Risk Engine",
+  "description": "Computes risk scores using severity, likelihood, and regulatory exposure.",
+  "model": {
+    "severity_weights": { "factor": 0.6 },
+    "likelihood_weights": { "factor": 0.4 },
+    "regulatory_weights": {
+      "GDPR": 5,
+      "CCPA": 3,
+      "ISO_27701": 2,
+      "SOC_2": 2
+    },
+    "classification": {
+      "low": 20,
+      "moderate": 50,
+      "high": 75,
+      "critical": 100
+    }
+  }
+}

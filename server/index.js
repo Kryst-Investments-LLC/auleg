@@ -1,0 +1,204 @@
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
+const swaggerUi = require('swagger-ui-express');
+const swaggerJsdoc = require('swagger-jsdoc');
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+
+const { validateEnv } = require('./lib/config');
+const requestLogger = require('./middleware/request-logger');
+const { sanitizeBody } = require('./middleware/validate');
+
+// Validate configuration before starting
+const configResult = validateEnv();
+
+const authRoutes = require('./routes/auth');
+const auditRoutes = require('./routes/audits');
+const healthRoutes = require('./routes/health');
+const adminRoutes = require('./routes/admin');
+const orgRoutes = require('./routes/orgs');
+const exportRoutes = require('./routes/export');
+const webhookRoutes = require('./routes/webhooks');
+const templateRoutes = require('./routes/templates');
+const notificationRoutes = require('./routes/notifications');
+const apiKeyRoutes = require('./routes/api-keys');
+const analyticsRoutes = require('./routes/analytics');
+const shareRoutes = require('./routes/shares');
+const scheduleRoutes = require('./routes/schedules');
+const scoringRuleRoutes = require('./routes/scoring-rules');
+const commentRoutes = require('./routes/comments');
+const preferenceRoutes = require('./routes/preferences');
+const billingRoutes = require('./routes/billing');
+const aiRoutes = require('./routes/ai');
+const publicApiV1 = require('./routes/public-api-v1');
+
+const app = express();
+const PORT = process.env.PORT || 4000;
+
+// Security
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],  // swagger-ui needs inline scripts
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:']
+    }
+  },
+  crossOriginEmbedderPolicy: false  // allow swagger-ui assets
+}));
+app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:3000', credentials: true }));
+app.use(compression());
+app.use(express.json({ limit: '10mb' }));
+
+// Request ID + logging
+app.use(requestLogger);
+
+// Input sanitization (for JSON bodies)
+app.use(sanitizeBody);
+
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '0'); // Modern browsers; CSP is preferred
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
+
+// Rate limiting
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later' }
+});
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many auth attempts, please try again later' }
+});
+app.use('/api/', apiLimiter);
+app.use('/api/auth', authLimiter);
+
+// Swagger
+const swaggerSpec = swaggerJsdoc({
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Auleg API',
+      version: '1.0.0',
+      description: 'REST API for the Auleg platform — www.auleg.com'
+    },
+    servers: [{ url: `http://localhost:${PORT}` }],
+    components: {
+      securitySchemes: {
+        bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }
+      }
+    }
+  },
+  apis: [path.join(__dirname, 'routes', '*.js')]
+});
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Routes
+app.use('/api/health', healthRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/audits', auditRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/orgs', orgRoutes);
+app.use('/api/export', exportRoutes);
+app.use('/api/webhooks', webhookRoutes);
+app.use('/api/templates', templateRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/api-keys', apiKeyRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/shares', shareRoutes);
+app.use('/api/schedules', scheduleRoutes);
+app.use('/api/scoring-rules', scoringRuleRoutes);
+app.use('/api/comments', commentRoutes);
+app.use('/api/preferences', preferenceRoutes);
+app.use('/api/billing', billingRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/v1', publicApiV1);
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+// Structured error handler
+app.use((err, req, res, next) => {
+  const status = err.status || err.statusCode || 500;
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  // Log full error server-side
+  console.error(JSON.stringify({
+    type: 'error',
+    reqId: req.id,
+    method: req.method,
+    path: req.originalUrl,
+    status,
+    message: err.message,
+    stack: isProduction ? undefined : err.stack
+  }));
+
+  // Don't leak internal details in production
+  res.status(status).json({
+    error: status >= 500 && isProduction ? 'Internal server error' : err.message || 'Internal server error',
+    ...(req.id ? { requestId: req.id } : {})
+  });
+});
+
+// Start server
+const server = app.listen(PORT, () => {
+  console.log(`Auleg API running on http://localhost:${PORT}`);
+  console.log(`API docs: http://localhost:${PORT}/api/docs`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
+});
+
+// Graceful shutdown
+function gracefulShutdown(signal) {
+  console.log(`\n${signal} received. Starting graceful shutdown...`);
+
+  server.close(async () => {
+    console.log('HTTP server closed');
+
+    try {
+      const prisma = require('./lib/prisma');
+      await prisma.$disconnect();
+      console.log('Database disconnected');
+    } catch (err) {
+      console.error('Error disconnecting database:', err.message);
+    }
+
+    console.log('Shutdown complete');
+    process.exit(0);
+  });
+
+  // Force exit after 10s
+  setTimeout(() => {
+    console.error('Forced shutdown after timeout');
+    process.exit(1);
+  }, 10000).unref();
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Catch unhandled errors
+process.on('unhandledRejection', (reason, promise) => {
+  console.error(JSON.stringify({ type: 'unhandledRejection', reason: String(reason) }));
+});
+
+process.on('uncaughtException', (err) => {
+  console.error(JSON.stringify({ type: 'uncaughtException', message: err.message, stack: err.stack }));
+  gracefulShutdown('uncaughtException');
+});

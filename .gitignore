@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+server/node_modules/
+dashboard/node_modules/
+
+# Environment
+.env
+server/.env
+
+# Database
+server/dev.db
+server/dev.db-journal
+
+# Build output
+dashboard/build/
+audit-output/
+
+# Uploads
+server/uploads/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Prisma
+server/prisma/migrations/
+
+# Logs
+*.log
+npm-debug.log*

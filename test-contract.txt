@@ -1,0 +1,2 @@
+Sample DPA contract for testing the audit pipeline.
+This document contains breach notification clauses and subprocessor controls.
