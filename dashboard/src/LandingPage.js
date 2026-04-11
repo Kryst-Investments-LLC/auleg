@@ -113,37 +113,61 @@ export default function LandingPage({ onGetStarted, onSignIn }) {
             <h3>Free</h3>
             <div className="landing-price">$0<span>/month</span></div>
             <ul>
-              <li>5 audits / month</li>
+              <li>3 audits / month</li>
               <li>Basic risk scoring</li>
               <li>Gap analysis</li>
               <li>1 user</li>
             </ul>
             <button className="landing-btn-outline" onClick={onGetStarted}>Get Started</button>
           </div>
+          <div className="landing-pricing-card">
+            <h3>Starter</h3>
+            <div className="landing-price">$29<span>/month</span></div>
+            <ul>
+              <li>25 audits / month</li>
+              <li>Templates &amp; sharing</li>
+              <li>Compliance reports</li>
+              <li>500 MB storage</li>
+              <li>5 team members</li>
+            </ul>
+            <button className="landing-btn-outline" onClick={onGetStarted}>Start Starter</button>
+          </div>
           <div className="landing-pricing-card landing-pricing-featured">
             <div className="landing-pricing-badge">Most Popular</div>
             <h3>Pro</h3>
-            <div className="landing-price">$49<span>/month</span></div>
+            <div className="landing-price">$99<span>/month</span></div>
             <ul>
               <li>100 audits / month</li>
-              <li>AI insights & summaries</li>
+              <li>Advanced dual AI analysis</li>
               <li>Batch uploads</li>
-              <li>API access</li>
-              <li>5 team members</li>
-              <li>Webhooks & integrations</li>
+              <li>API access (5,000 calls)</li>
+              <li>15 team members</li>
+              <li>Webhooks &amp; integrations</li>
             </ul>
             <button className="landing-btn-primary" onClick={onGetStarted}>Start Pro Trial</button>
           </div>
           <div className="landing-pricing-card">
+            <h3>Business</h3>
+            <div className="landing-price">$249<span>/month</span></div>
+            <ul>
+              <li>500 audits / month</li>
+              <li>Legal intelligence agents</li>
+              <li>Custom scoring rules</li>
+              <li>10 GB storage</li>
+              <li>50 team members</li>
+              <li>Admin panel</li>
+            </ul>
+            <button className="landing-btn-outline" onClick={onGetStarted}>Start Business</button>
+          </div>
+          <div className="landing-pricing-card">
             <h3>Enterprise</h3>
-            <div className="landing-price">Custom</div>
+            <div className="landing-price">$999<span>/month</span></div>
             <ul>
               <li>Unlimited audits</li>
-              <li>Custom scoring rules</li>
-              <li>Scheduled audits</li>
-              <li>SSO & RBAC</li>
-              <li>Unlimited users</li>
-              <li>Priority support</li>
+              <li>SSO &amp; RBAC</li>
+              <li>Unlimited users &amp; storage</li>
+              <li>Priority support &amp; SLA</li>
+              <li>Dedicated account manager</li>
             </ul>
             <button className="landing-btn-outline" onClick={onSignIn}>Contact Sales</button>
           </div>
