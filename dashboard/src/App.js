@@ -29,7 +29,7 @@ function BetaBanner() {
       top: 0,
       zIndex: 9999
     }}>
-      🚀 BETA — You're using Auleg in beta mode. All features are free during the beta period.
+      � PRIVATE BETA — Platform is in testing mode. Registration is closed.
     </div>
   );
 }
@@ -47,19 +47,6 @@ function App() {
       try {
         const beta = await checkBetaStatus();
         setIsBeta(beta);
-
-        if (beta && !isLoggedIn()) {
-          // Beta mode: create a guest session
-          setUser({
-            id: 'beta-guest',
-            email: 'beta@auleg.com',
-            name: 'Beta User',
-            role: 'member',
-            isBetaGuest: true
-          });
-          setLoading(false);
-          return;
-        }
       } catch {}
 
       if (isLoggedIn()) {

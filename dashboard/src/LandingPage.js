@@ -13,18 +13,7 @@ export default function LandingPage({ onGetStarted, onSignIn, isBeta }) {
           fontSize: 14,
           fontWeight: 600
         }}>
-          🚀 BETA — Try all features free. No credit card required.
-          <button onClick={onGetStarted} style={{
-            marginLeft: 16,
-            background: '#fff',
-            color: '#6366f1',
-            border: 'none',
-            borderRadius: 6,
-            padding: '4px 16px',
-            fontWeight: 700,
-            cursor: 'pointer',
-            fontSize: 13
-          }}>Try Now &rarr;</button>
+          � PRIVATE BETA — This platform is currently in private beta testing. Public access coming soon.
         </div>
       )}
 

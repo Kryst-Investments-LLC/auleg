@@ -2,26 +2,8 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const prisma = require('../lib/prisma');
 
-const BETA_MODE = process.env.BETA_MODE === 'true';
-
-// Beta guest user (used when no auth header and BETA_MODE is on)
-const BETA_GUEST = {
-  id: 'beta-guest',
-  email: 'beta@auleg.com',
-  role: 'member',
-  orgId: null,
-  isBetaGuest: true
-};
-
 async function authMiddleware(req, res, next) {
   const header = req.headers.authorization;
-
-  // Beta mode: allow unauthenticated access with a guest identity
-  if (!header && BETA_MODE) {
-    req.user = { ...BETA_GUEST };
-    return next();
-  }
-
   if (!header) {
     return res.status(401).json({ error: 'Missing authorization header' });
   }

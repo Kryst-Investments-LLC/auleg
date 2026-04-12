@@ -33,6 +33,11 @@ const router = express.Router();
  */
 router.post('/register', async (req, res, next) => {
   try {
+    // Beta mode: block new registrations
+    if (process.env.BETA_MODE === 'true') {
+      return res.status(403).json({ error: 'Registration is closed during the private beta period. Check back soon!' });
+    }
+
     const { email, password, name } = req.body;
 
     if (!email || !password) {
