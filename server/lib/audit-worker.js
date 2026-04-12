@@ -6,8 +6,8 @@ const { logActivity } = require('./activity');
 const { notify } = require('./notifications');
 const email = require('./email');
 
-// Load audit engine data files
-const ENGINE_DATA = path.resolve(__dirname, '../../audit-engine/data');
+// Load audit engine data files (bundled in server/data/)
+const ENGINE_DATA = path.resolve(__dirname, '../data');
 const clauseDetection = JSON.parse(fs.readFileSync(path.join(ENGINE_DATA, 'clause-detection.json.hbs'), 'utf-8'));
 const regulationMapping = JSON.parse(fs.readFileSync(path.join(ENGINE_DATA, 'regulation-mapping.json.hbs'), 'utf-8'));
 const remediationLanguage = JSON.parse(fs.readFileSync(path.join(ENGINE_DATA, 'remediation-language.json.hbs'), 'utf-8'));

@@ -1,0 +1,66 @@
+{
+  "name": "Remediation Language Templates",
+  "description": "Pre-written contract clause suggestions for DPA gaps.",
+  "templates": {
+    "data_processing_purpose": {
+      "title": "Purpose of Processing Clause",
+      "severity": "High",
+      "suggested_language": "The Processor shall process Personal Data only for the specific purposes set forth in Annex 1 of this Agreement. Any processing beyond the stated purposes shall require prior written consent from the Controller. The Processor shall not process Personal Data for its own purposes or for the benefit of any third party.",
+      "references": ["GDPR Art. 5(1)(b)", "GDPR Art. 6(1)", "CCPA §1798.100(b)"]
+    },
+    "subprocessor_controls": {
+      "title": "Subprocessor Controls Clause",
+      "severity": "High",
+      "suggested_language": "The Processor shall not engage any subprocessor without prior specific or general written authorization from the Controller. Where general written authorization is given, the Processor shall inform the Controller of any intended changes concerning the addition or replacement of subprocessors, thereby giving the Controller the opportunity to object. The Processor shall impose the same data protection obligations as set out in this Agreement on any subprocessor by way of a contract.",
+      "references": ["GDPR Art. 28(2)", "GDPR Art. 28(4)", "ISO 27701 §7.2.6"]
+    },
+    "breach_notification": {
+      "title": "Breach Notification Clause",
+      "severity": "Critical",
+      "suggested_language": "The Processor shall notify the Controller without undue delay and in any event within 72 hours after becoming aware of a Personal Data breach. Such notification shall include: (a) the nature of the breach including, where possible, the categories and approximate number of data subjects and records concerned; (b) the name and contact details of the data protection officer or other contact point; (c) the likely consequences of the breach; and (d) the measures taken or proposed to address the breach, including measures to mitigate its possible adverse effects.",
+      "references": ["GDPR Art. 33", "CCPA §1798.82"]
+    },
+    "data_subject_rights": {
+      "title": "Data Subject Rights Clause",
+      "severity": "High",
+      "suggested_language": "The Processor shall promptly assist the Controller in fulfilling its obligations to respond to requests from data subjects exercising their rights under applicable data protection law, including the right of access, rectification, erasure, restriction of processing, data portability, and the right to object. The Processor shall forward any data subject request received directly to the Controller within 24 hours without responding to the request itself.",
+      "references": ["GDPR Art. 15-22", "CCPA §1798.100-1798.125"]
+    },
+    "security_measures": {
+      "title": "Security Measures Clause",
+      "severity": "Critical",
+      "suggested_language": "The Processor shall implement and maintain appropriate technical and organizational measures to ensure a level of security appropriate to the risk, including as appropriate: (a) the pseudonymization and encryption of Personal Data; (b) the ability to ensure the ongoing confidentiality, integrity, availability, and resilience of processing systems; (c) the ability to restore availability and access to Personal Data in a timely manner in the event of a physical or technical incident; and (d) a process for regularly testing, assessing, and evaluating the effectiveness of technical and organizational measures.",
+      "references": ["GDPR Art. 32", "SOC 2 CC6", "ISO 27701 §6.9"]
+    },
+    "audit_rights": {
+      "title": "Audit Rights Clause",
+      "severity": "Moderate",
+      "suggested_language": "The Processor shall make available to the Controller all information necessary to demonstrate compliance with the obligations laid down in this Agreement and allow for and contribute to audits, including inspections, conducted by the Controller or another auditor mandated by the Controller. The Processor shall immediately inform the Controller if, in its opinion, an instruction infringes applicable data protection law.",
+      "references": ["GDPR Art. 28(3)(h)", "ISO 27701 §7.2.8"]
+    },
+    "data_retention": {
+      "title": "Data Retention and Deletion Clause",
+      "severity": "Moderate",
+      "suggested_language": "Upon termination or expiry of this Agreement, the Processor shall, at the choice of the Controller, delete or return all Personal Data to the Controller and delete existing copies unless applicable law requires storage of the Personal Data. The Processor shall certify in writing that it has complied with this obligation within 30 days of termination.",
+      "references": ["GDPR Art. 28(3)(g)", "GDPR Art. 17"]
+    },
+    "international_transfers": {
+      "title": "International Transfers Clause",
+      "severity": "High",
+      "suggested_language": "The Processor shall not transfer Personal Data to any country outside the European Economic Area or the jurisdiction of origin without the prior written consent of the Controller and without ensuring that appropriate safeguards are in place, including Standard Contractual Clauses approved by the European Commission, Binding Corporate Rules, or an adequacy decision.",
+      "references": ["GDPR Art. 44-49", "CCPA §1798.140"]
+    },
+    "confidentiality": {
+      "title": "Confidentiality Clause",
+      "severity": "Moderate",
+      "suggested_language": "The Processor shall ensure that persons authorized to process the Personal Data have committed themselves to confidentiality or are under an appropriate statutory obligation of confidentiality. The Processor shall ensure that access to Personal Data is limited to those personnel who need access to fulfill the obligations under this Agreement.",
+      "references": ["GDPR Art. 28(3)(b)", "GDPR Art. 32(1)(b)"]
+    },
+    "incident_response": {
+      "title": "Incident Response Clause",
+      "severity": "High",
+      "suggested_language": "The Processor shall maintain a documented incident response plan that includes procedures for identifying, containing, investigating, and remediating security incidents. The Processor shall provide the Controller with a copy of its incident response plan upon request and shall notify the Controller of any material changes to such plan.",
+      "references": ["GDPR Art. 32", "SOC 2 CC7", "ISO 27701 §6.13"]
+    }
+  }
+}

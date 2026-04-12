@@ -1,0 +1,49 @@
+{
+  "name": "Clause Detection Model",
+  "description": "Detects DPA clauses using regex patterns and semantic heuristics.",
+  "patterns": {
+    "data_processing_purpose": [
+      "(?i)purpose of processing",
+      "(?i)process.*personal data.*for the purpose",
+      "(?i)processing purpose"
+    ],
+    "breach_notification": [
+      "(?i)breach notification",
+      "(?i)notify.*breach",
+      "(?i)data breach.*within"
+    ],
+    "subprocessor_controls": [
+      "(?i)sub-?processor",
+      "(?i)third[- ]party processing",
+      "(?i)prior written authorization"
+    ],
+    "data_subject_rights": [
+      "(?i)data subject rights",
+      "(?i)access, rectification, erasure",
+      "(?i)respond to requests"
+    ],
+    "security_measures": [
+      "(?i)technical and organizational measures",
+      "(?i)TOMs",
+      "(?i)security controls"
+    ],
+    "audit_rights": [
+      "(?i)right to audit",
+      "(?i)inspection rights",
+      "(?i)conduct audits"
+    ]
+  },
+  "keywords": {
+    "data_processing_purpose": ["processing", "purpose", "personal data", "contracted services"],
+    "breach_notification": ["breach", "notification", "notify", "incident"],
+    "subprocessor_controls": ["subprocessor", "third party", "sub-processing"],
+    "data_subject_rights": ["access", "erasure", "rectification", "data subject"],
+    "security_measures": ["encryption", "access control", "logging", "security"],
+    "audit_rights": ["audit", "inspection", "review"]
+  },
+  "heuristics": {
+    "min_clause_length": 40,
+    "max_clause_length": 2000,
+    "confidence_threshold": 0.55
+  }
+}
