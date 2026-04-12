@@ -60,7 +60,9 @@ async function extractText(filePath) {
     const buffer = fs.readFileSync(filePath);
     const pdf = new PDFParse({ data: new Uint8Array(buffer) });
     await pdf.load();
-    const text = await pdf.getText();
+    const result = await pdf.getText();
+    // getText may return string or array of page strings
+    const text = Array.isArray(result) ? result.join('\n') : String(result);
     return text;
   }
 
