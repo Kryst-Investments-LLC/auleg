@@ -86,10 +86,14 @@ function App() {
   }
 
   if (!user) {
+    // Beta mode: show login page directly (no landing, no register)
+    if (isBeta) {
+      return <AuthPage onLogin={handleLogin} isBeta={true} />;
+    }
     if (page === 'auth') {
       return <AuthPage onLogin={handleLogin} onBack={() => setPage('landing')} />;
     }
-    return <LandingPage onGetStarted={() => setPage('auth')} onSignIn={() => setPage('auth')} isBeta={isBeta} />;
+    return <LandingPage onGetStarted={() => setPage('auth')} onSignIn={() => setPage('auth')} isBeta={false} />;
   }
 
   if (showOnboarding) {

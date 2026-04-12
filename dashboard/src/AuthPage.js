@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { login, register } from './api';
 
-export default function AuthPage({ onLogin, onBack }) {
+export default function AuthPage({ onLogin, onBack, isBeta }) {
   const [isRegister, setIsRegister] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
   const [email, setEmail] = useState('');
@@ -73,12 +73,26 @@ export default function AuthPage({ onLogin, onBack }) {
           <button className="auth-back" onClick={onBack}>&larr; Back</button>
         )}
         <h1>Auleg</h1>
+        {isBeta && (
+          <div style={{
+            background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
+            color: '#fff',
+            textAlign: 'center',
+            padding: '8px 12px',
+            borderRadius: 8,
+            fontSize: 12,
+            fontWeight: 600,
+            marginBottom: 16
+          }}>
+            🔒 Private Beta — Authorized access only
+          </div>
+        )}
         <p className="auth-subtitle">
-          {isRegister ? 'Create your account' : 'Sign in to your account'}
+          {isRegister && !isBeta ? 'Create your account' : 'Sign in to your account'}
         </p>
 
         <form onSubmit={handleSubmit}>
-          {isRegister && (
+          {isRegister && !isBeta && (
             <input
               type="text"
               placeholder="Full name"
@@ -118,12 +132,14 @@ export default function AuthPage({ onLogin, onBack }) {
           </div>
         )}
 
-        <div className="auth-toggle">
-          {isRegister ? 'Already have an account?' : "Don't have an account?"}
-          <button onClick={() => { setIsRegister(!isRegister); setError(''); }}>
-            {isRegister ? 'Sign in' : 'Register'}
-          </button>
-        </div>
+        {!isBeta && (
+          <div className="auth-toggle">
+            {isRegister ? 'Already have an account?' : "Don't have an account?"}
+            <button onClick={() => { setIsRegister(!isRegister); setError(''); }}>
+              {isRegister ? 'Sign in' : 'Register'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
