@@ -814,3 +814,9 @@ export async function saveSsoConfig(data) {
     body: JSON.stringify(data)
   });
 }
+
+export async function checkBetaStatus() {
+  const res = await fetch(`${API_BASE}/health`);
+  const data = await res.json();
+  return data.beta === true;
+}

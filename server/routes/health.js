@@ -18,10 +18,11 @@ router.get('/', (req, res) => {
   res.json({
     status: 'healthy',
     service: 'Auleg API',
-    version: '1.0.0',
+    version: '1.0.0-beta',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    startedAt
+    startedAt,
+    beta: process.env.BETA_MODE === 'true'
   });
 });
 

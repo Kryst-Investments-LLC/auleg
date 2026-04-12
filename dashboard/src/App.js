@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
-import { isLoggedIn, getMe, logout } from './api';
+import { isLoggedIn, getMe, logout, checkBetaStatus } from './api';
 import AuthPage from './AuthPage';
 import AuditPage from './AuditPage';
 import AdminPage from './AdminPage';
@@ -15,21 +15,64 @@ import AdvancedPage from './AdvancedPage';
 import LandingPage from './LandingPage';
 import OnboardingWizard from './OnboardingWizard';
 
+function BetaBanner() {
+  return (
+    <div style={{
+      background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
+      color: '#fff',
+      textAlign: 'center',
+      padding: '8px 16px',
+      fontSize: 13,
+      fontWeight: 600,
+      letterSpacing: '0.5px',
+      position: 'sticky',
+      top: 0,
+      zIndex: 9999
+    }}>
+      🚀 BETA — You're using Auleg in beta mode. All features are free during the beta period.
+    </div>
+  );
+}
+
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isBeta, setIsBeta] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [page, setPage] = useState('audits'); // landing | auth | audits | admin | org | compare | settings | analytics | billing | api-explorer
+  const [page, setPage] = useState('audits');
 
   useEffect(() => {
-    if (isLoggedIn()) {
-      getMe()
-        .then(setUser)
-        .catch(() => { logout(); })
-        .finally(() => setLoading(false));
-    } else {
+    const init = async () => {
+      // Check beta mode
+      try {
+        const beta = await checkBetaStatus();
+        setIsBeta(beta);
+
+        if (beta && !isLoggedIn()) {
+          // Beta mode: create a guest session
+          setUser({
+            id: 'beta-guest',
+            email: 'beta@auleg.com',
+            name: 'Beta User',
+            role: 'member',
+            isBetaGuest: true
+          });
+          setLoading(false);
+          return;
+        }
+      } catch {}
+
+      if (isLoggedIn()) {
+        try {
+          const me = await getMe();
+          setUser(me);
+        } catch {
+          logout();
+        }
+      }
       setLoading(false);
-    }
+    };
+    init();
   }, []);
 
   const handleLogin = (user) => {
@@ -59,7 +102,7 @@ function App() {
     if (page === 'auth') {
       return <AuthPage onLogin={handleLogin} onBack={() => setPage('landing')} />;
     }
-    return <LandingPage onGetStarted={() => setPage('auth')} onSignIn={() => setPage('auth')} />;
+    return <LandingPage onGetStarted={() => setPage('auth')} onSignIn={() => setPage('auth')} isBeta={isBeta} />;
   }
 
   if (showOnboarding) {
@@ -103,19 +146,22 @@ function App() {
   }
 
   return (
-    <AuditPage
-      user={user}
-      onLogout={handleLogout}
-      onAdmin={user.role === 'admin' ? () => setPage('admin') : null}
-      onOrg={() => setPage('org')}
-      onCompare={() => setPage('compare')}
-      onSettings={() => setPage('settings')}
-      onAnalytics={() => setPage('analytics')}
-      onBilling={() => setPage('billing')}
-      onApiExplorer={() => setPage('api-explorer')}
-      onLegal={() => setPage('legal')}
-      onAdvanced={() => setPage('advanced')}
-    />
+    <>
+      {isBeta && <BetaBanner />}
+      <AuditPage
+        user={user}
+        onLogout={handleLogout}
+        onAdmin={user.role === 'admin' ? () => setPage('admin') : null}
+        onOrg={() => setPage('org')}
+        onCompare={() => setPage('compare')}
+        onSettings={() => setPage('settings')}
+        onAnalytics={() => setPage('analytics')}
+        onBilling={() => setPage('billing')}
+        onApiExplorer={() => setPage('api-explorer')}
+        onLegal={() => setPage('legal')}
+        onAdvanced={() => setPage('advanced')}
+      />
+    </>
   );
 }
 

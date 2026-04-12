@@ -1,12 +1,46 @@
 import React from 'react';
 
-export default function LandingPage({ onGetStarted, onSignIn }) {
+export default function LandingPage({ onGetStarted, onSignIn, isBeta }) {
   return (
     <div className="landing">
+      {/* Beta Banner */}
+      {isBeta && (
+        <div style={{
+          background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
+          color: '#fff',
+          textAlign: 'center',
+          padding: '10px 16px',
+          fontSize: 14,
+          fontWeight: 600
+        }}>
+          🚀 BETA — Try all features free. No credit card required.
+          <button onClick={onGetStarted} style={{
+            marginLeft: 16,
+            background: '#fff',
+            color: '#6366f1',
+            border: 'none',
+            borderRadius: 6,
+            padding: '4px 16px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            fontSize: 13
+          }}>Try Now &rarr;</button>
+        </div>
+      )}
+
       {/* Nav */}
       <nav className="landing-nav">
         <div className="landing-nav-inner">
-          <div className="landing-logo">Auleg</div>
+          <div className="landing-logo">Auleg {isBeta && <span style={{
+            background: '#6366f1',
+            color: '#fff',
+            fontSize: 10,
+            padding: '2px 6px',
+            borderRadius: 4,
+            marginLeft: 6,
+            fontWeight: 700,
+            verticalAlign: 'super'
+          }}>BETA</span>}</div>
           <div className="landing-nav-links">
             <a href="#features">Features</a>
             <a href="#how-it-works">How it works</a>
