@@ -90,7 +90,9 @@ function detectClauses(text) {
 
       let regexHit = false;
       for (const regex of regexList) {
-        if (new RegExp(regex, 'i').test(trimmed)) {
+        // Strip Python-style (?i) inline flags — JS uses RegExp flag arg instead
+        const cleaned = regex.replace(/\(\?[imsx]+\)/g, '');
+        if (new RegExp(cleaned, 'i').test(trimmed)) {
           regexHit = true;
           break;
         }
