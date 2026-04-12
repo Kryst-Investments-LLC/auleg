@@ -243,9 +243,9 @@ async function searchArticles(query) {
   const articles = await prisma.regulationArticle.findMany({
     where: {
       OR: [
-        { title: { contains: q } },
-        { content: { contains: q } },
-        { summary: { contains: q } }
+        { title: { contains: q, mode: 'insensitive' } },
+        { content: { contains: q, mode: 'insensitive' } },
+        { summary: { contains: q, mode: 'insensitive' } }
       ]
     },
     include: { regulation: { select: { code: true, name: true } } },

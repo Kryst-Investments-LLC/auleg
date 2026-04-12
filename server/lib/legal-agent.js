@@ -129,6 +129,21 @@ async function retrieveContext(query) {
   if (detectedClause) {
     context.articles = await getArticlesForClause(detectedClause);
   }
+
+  // For general DPA/risk queries without a specific clause, pull key articles
+  if (!detectedClause && (q.includes('dpa') || q.includes('risk') || q.includes('good') || q.includes('contract') || q.includes('complian'))) {
+    // Fetch the core DPA article (GDPR Art. 28) and related
+    for (const clause of ['data_processing_purpose', 'breach_notification', 'subprocessor_controls', 'security_measures', 'audit_rights', 'data_subject_rights']) {
+      const arts = await getArticlesForClause(clause);
+      for (const art of arts.slice(0, 2)) {
+        if (!context.articles.find(a => a.id === art.id)) {
+          context.articles.push(art);
+        }
+      }
+      if (context.articles.length >= 10) break;
+    }
+  }
+
   if (context.articles.length < 5) {
     const searched = await searchArticles(query);
     const existingIds = new Set(context.articles.map(a => a.id));

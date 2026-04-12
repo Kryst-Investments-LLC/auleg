@@ -168,10 +168,19 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   console.log(`Auleg API running on http://localhost:${PORT}`);
   console.log(`API docs: http://localhost:${PORT}/api/docs`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
+
+  // Auto-seed the legal knowledge base
+  try {
+    const { seedLegalDatabase } = require('./lib/legal-knowledge');
+    const result = await seedLegalDatabase();
+    console.log(`Legal KB seeded: ${result.regulationCount} regulations, ${result.articleCount} articles, ${result.enforcementCount} enforcements, ${result.guidanceCount} guidance`);
+  } catch (err) {
+    console.error('Legal KB seed error:', err.message);
+  }
 });
 
 // Graceful shutdown
