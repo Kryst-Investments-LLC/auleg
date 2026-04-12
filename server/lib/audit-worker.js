@@ -56,10 +56,12 @@ async function extractText(filePath) {
   }
 
   if (ext === '.pdf') {
-    const pdfParse = require('pdf-parse');
+    const { PDFParse } = require('pdf-parse');
     const buffer = fs.readFileSync(filePath);
-    const data = await pdfParse(buffer);
-    return data.text;
+    const pdf = new PDFParse({ data: new Uint8Array(buffer) });
+    await pdf.load();
+    const text = await pdf.getText();
+    return text;
   }
 
   if (ext === '.docx') {
