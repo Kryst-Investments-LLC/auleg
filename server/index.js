@@ -11,6 +11,8 @@ require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 const { validateEnv } = require('./lib/config');
 const requestLogger = require('./middleware/request-logger');
 const { sanitizeBody } = require('./middleware/validate');
+const logger = require('./lib/logger');
+const { register: metricsRegistry, metricsMiddleware } = require('./lib/metrics');
 
 // Validate configuration before starting
 const configResult = validateEnv();
@@ -39,6 +41,10 @@ const coreAdvancedRoutes = require('./routes/core-advanced');
 const workflowRoutes = require('./routes/workflow');
 const reportingRoutes = require('./routes/reporting');
 const integrationsRoutes = require('./routes/integrations');
+const ssoRoutes = require('./routes/sso');
+const auditLogRoutes = require('./routes/audit-logs');
+const tosRoutes = require('./routes/terms');
+const dataResidencyRoutes = require('./routes/data-residency');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -74,6 +80,9 @@ app.use((req, res, next) => {
 
 // Request ID + logging
 app.use(requestLogger);
+
+// Prometheus metrics collection
+app.use(metricsMiddleware);
 
 // Input sanitization (for JSON bodies)
 app.use(sanitizeBody);
@@ -159,7 +168,22 @@ app.use('/api/core', coreAdvancedRoutes);
 app.use('/api/workflow', workflowRoutes);
 app.use('/api/reporting', reportingRoutes);
 app.use('/api/integrations', integrationsRoutes);
+app.use('/api/sso', ssoRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/terms', tosRoutes);
+app.use('/api/data-residency', dataResidencyRoutes);
 app.use('/api/v1', publicApiV1);
+
+// Prometheus metrics endpoint (internal, not rate-limited)
+app.get('/metrics', async (req, res) => {
+  // Optionally restrict to internal IPs or require auth
+  const metricsToken = process.env.METRICS_TOKEN;
+  if (metricsToken && req.headers.authorization !== `Bearer ${metricsToken}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  res.set('Content-Type', metricsRegistry.contentType);
+  res.end(await metricsRegistry.metrics());
+});
 
 // 404 handler
 app.use((req, res) => {
@@ -172,15 +196,14 @@ app.use((err, req, res, next) => {
   const isDev = process.env.NODE_ENV === 'development';
 
   // Log full error server-side
-  console.error(JSON.stringify({
-    type: 'error',
+  logger.error({
     reqId: req.id,
     method: req.method,
     path: req.originalUrl,
     status,
     message: err.message,
     stack: isDev ? err.stack : undefined
-  }));
+  }, 'request error');
 
   // Don't leak internal details outside development
   res.status(status).json({
@@ -191,42 +214,52 @@ app.use((err, req, res, next) => {
 
 // Start server
 const server = app.listen(PORT, async () => {
-  console.log(`Auleg API running on http://localhost:${PORT}`);
-  console.log(`API docs: http://localhost:${PORT}/api/docs`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
+  logger.info({ port: PORT, env: process.env.NODE_ENV }, 'Auleg API running');
+  logger.info({ url: `http://localhost:${PORT}/api/docs` }, 'API docs');
 
   // Auto-seed the legal knowledge base
   try {
     const { seedLegalDatabase } = require('./lib/legal-knowledge');
     const result = await seedLegalDatabase();
-    console.log(`Legal KB seeded: ${result.regulationCount} regulations, ${result.articleCount} articles, ${result.enforcementCount} enforcements, ${result.guidanceCount} guidance`);
+    logger.info(result, 'Legal KB seeded');
   } catch (err) {
-    console.error('Legal KB seed error:', err.message);
+    logger.error({ err: err.message }, 'Legal KB seed error');
   }
 });
 
 // Graceful shutdown
 function gracefulShutdown(signal) {
-  console.log(`\n${signal} received. Starting graceful shutdown...`);
+  logger.info({ signal }, 'Starting graceful shutdown');
 
   server.close(async () => {
-    console.log('HTTP server closed');
+    logger.info('HTTP server closed');
+
+    try {
+      // Shutdown BullMQ workers
+      const { shutdownWorker } = require('./lib/audit-worker');
+      await shutdownWorker();
+      const { shutdownEmailQueue } = require('./lib/email');
+      await shutdownEmailQueue();
+      logger.info('Job queues shut down');
+    } catch (err) {
+      logger.error({ err: err.message }, 'Error shutting down queues');
+    }
 
     try {
       const prisma = require('./lib/prisma');
       await prisma.$disconnect();
-      console.log('Database disconnected');
+      logger.info('Database disconnected');
     } catch (err) {
-      console.error('Error disconnecting database:', err.message);
+      logger.error({ err: err.message }, 'Error disconnecting database');
     }
 
-    console.log('Shutdown complete');
+    logger.info('Shutdown complete');
     process.exit(0);
   });
 
   // Force exit after 10s
   setTimeout(() => {
-    console.error('Forced shutdown after timeout');
+    logger.error('Forced shutdown after timeout');
     process.exit(1);
   }, 10000).unref();
 }
@@ -236,7 +269,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Catch unhandled errors
 process.on('unhandledRejection', (reason, promise) => {
-  console.error(JSON.stringify({ type: 'unhandledRejection', reason: String(reason) }));
+  logger.error({ reason: String(reason) }, 'unhandledRejection');
 });
 
 process.on('uncaughtException', (err) => {

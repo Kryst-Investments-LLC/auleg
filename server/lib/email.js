@@ -6,7 +6,13 @@
  * 
  * Supports: transactional emails (password reset, audit complete, share invite)
  *           and digest emails (daily/weekly audit summaries).
+ * 
+ * Enterprise: Uses BullMQ email queue when REDIS_URL is set for
+ *             retry with exponential backoff, dead letter tracking.
  */
+
+const logger = require('./logger');
+const { emailsSent } = require('./metrics');
 
 const SENDGRID_KEY = process.env.SENDGRID_API_KEY;
 const FROM_EMAIL = process.env.EMAIL_FROM || 'noreply@auleg.com';
@@ -17,20 +23,79 @@ if (SENDGRID_KEY) {
   try {
     sgMail = require('@sendgrid/mail');
     sgMail.setApiKey(SENDGRID_KEY);
-    console.log('Email: SendGrid enabled');
+    logger.info('Email: SendGrid enabled');
   } catch (e) {
-    console.warn('SendGrid package not installed, emails will be logged to console');
+    logger.warn('SendGrid package not installed, emails will be logged to console');
   }
 }
+
+// ─── BullMQ Email Queue ─────────────────────────────────
+let emailQueue = null;
+let emailWorker = null;
+
+function initEmailQueue() {
+  const redisUrl = process.env.REDIS_URL;
+  if (!redisUrl) return false;
+
+  try {
+    const { Queue, Worker } = require('bullmq');
+    const IORedis = require('ioredis');
+
+    const connection = new IORedis(redisUrl, {
+      maxRetriesPerRequest: null,
+      enableReadyCheck: false
+    });
+
+    emailQueue = new Queue('emails', {
+      connection,
+      defaultJobOptions: {
+        attempts: 5,
+        backoff: { type: 'exponential', delay: 10000 },
+        removeOnComplete: { age: 3 * 24 * 3600 },
+        removeOnFail: { age: 30 * 24 * 3600 }
+      }
+    });
+
+    emailWorker = new Worker('emails', async (job) => {
+      const result = await sendEmailDirect(job.data);
+      if (!result.sent) {
+        throw new Error(result.error || 'Email delivery failed');
+      }
+      return result;
+    }, {
+      connection,
+      concurrency: 5,
+      limiter: { max: 30, duration: 60000 } // 30 emails/min
+    });
+
+    emailWorker.on('completed', (job) => {
+      emailsSent.inc({ type: job.data.emailType || 'transactional', status: 'sent' });
+      logger.debug({ to: job.data.to, type: job.data.emailType }, 'Email delivered');
+    });
+
+    emailWorker.on('failed', (job, err) => {
+      emailsSent.inc({ type: job?.data?.emailType || 'transactional', status: 'failed' });
+      logger.error({ to: job?.data?.to, err: err.message, attempts: job?.attemptsMade }, 'Email delivery failed');
+    });
+
+    logger.info('BullMQ email queue initialized');
+    return true;
+  } catch (err) {
+    logger.warn({ err: err.message }, 'Email queue init failed — sending synchronously');
+    return false;
+  }
+}
+
+initEmailQueue();
 
 function isLive() {
   return !!sgMail;
 }
 
 /**
- * Send a single email.
+ * Send email directly (used by BullMQ worker or as fallback).
  */
-async function sendEmail({ to, subject, text, html }) {
+async function sendEmailDirect({ to, subject, text, html }) {
   const msg = {
     to,
     from: { email: FROM_EMAIL, name: FROM_NAME },
@@ -44,14 +109,32 @@ async function sendEmail({ to, subject, text, html }) {
       await sgMail.send(msg);
       return { sent: true, provider: 'sendgrid' };
     } catch (err) {
-      console.error('SendGrid error:', err.response?.body?.errors || err.message);
+      logger.error({ to, err: err.response?.body?.errors || err.message }, 'SendGrid error');
       return { sent: false, error: err.message };
     }
   }
 
   // Dev fallback: log to console
-  console.log(`[EMAIL] To: ${to} | Subject: ${subject}`);
+  logger.info({ to, subject }, 'Email sent (console mode)');
   return { sent: true, provider: 'console' };
+}
+
+/**
+ * Send a single email — queued via BullMQ if available, else direct.
+ */
+async function sendEmail({ to, subject, text, html, emailType }) {
+  if (emailQueue) {
+    await emailQueue.add('send', { to, subject, text, html, emailType: emailType || 'transactional' });
+    return { sent: true, provider: 'queued' };
+  }
+
+  const result = await sendEmailDirect({ to, subject, text, html });
+  if (result.sent) {
+    emailsSent.inc({ type: emailType || 'transactional', status: 'sent' });
+  } else {
+    emailsSent.inc({ type: emailType || 'transactional', status: 'failed' });
+  }
+  return result;
 }
 
 /**
@@ -170,5 +253,9 @@ module.exports = {
   sendPasswordReset,
   sendAuditComplete,
   sendShareInvite,
-  sendDigest
+  sendDigest,
+  async shutdownEmailQueue() {
+    if (emailWorker) await emailWorker.close();
+    if (emailQueue) await emailQueue.close();
+  }
 };

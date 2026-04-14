@@ -22,6 +22,8 @@ EXPOSE 4000
 ENV NODE_ENV=production
 
 # DATABASE_URL must be provided at runtime
-# e.g. postgresql://user:pass@host:5432/auleg
+# REDIS_URL is optional (enables BullMQ persistent queues)
+# CLUSTER_WORKERS controls the number of worker processes (default: CPU count)
 
-CMD ["node", "index.js"]
+# Run Prisma migrations before starting the server
+CMD npx prisma migrate deploy && node cluster.js

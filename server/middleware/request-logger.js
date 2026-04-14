@@ -1,12 +1,14 @@
 const crypto = require('crypto');
+const logger = require('../lib/logger');
 
 /**
- * Assigns a unique request ID and logs request/response.
+ * Assigns a unique request ID and logs request/response with structured logging (pino).
  * Header: X-Request-Id
  */
 function requestLogger(req, res, next) {
   const reqId = req.headers['x-request-id'] || crypto.randomUUID();
   req.id = reqId;
+  req.log = logger.child({ reqId });
   res.setHeader('X-Request-Id', reqId);
 
   const start = Date.now();
@@ -18,7 +20,7 @@ function requestLogger(req, res, next) {
       method: req.method,
       path: req.originalUrl,
       status: res.statusCode,
-      duration: `${duration}ms`,
+      durationMs: duration,
       ip: req.ip,
       userAgent: req.headers['user-agent']?.substring(0, 120),
       userId: req.user?.id || null
@@ -28,11 +30,11 @@ function requestLogger(req, res, next) {
     if (req.originalUrl === '/api/health' || req.originalUrl.startsWith('/api/docs')) return;
 
     if (res.statusCode >= 500) {
-      console.error('[REQ]', JSON.stringify(log));
+      req.log.error(log, 'request completed');
     } else if (res.statusCode >= 400) {
-      console.warn('[REQ]', JSON.stringify(log));
+      req.log.warn(log, 'request completed');
     } else {
-      console.log('[REQ]', JSON.stringify(log));
+      req.log.info(log, 'request completed');
     }
   });
 

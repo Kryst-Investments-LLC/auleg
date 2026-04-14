@@ -523,19 +523,65 @@ model IntegrationConfig {
   updatedAt    DateTime @updatedAt
 }
 
-// ─── SSO/SAML Configs ─────────────────────────────────
+// ─── SSO/SAML/OIDC Configs ────────────────────────────
 
-model SsoConfig {
+model SSOConfig {
   id           String   @id @default(uuid())
   orgId        String   @unique
-  provider     String   // okta, azure_ad, google, onelogin
-  entityId     String
-  ssoUrl       String
-  certificate  String   // X.509 cert
-  metadataUrl  String?
+  provider     String   // saml, oidc
+  enabled      Boolean  @default(true)
+  // SAML fields
+  entryPoint   String?  // IdP SSO URL
+  issuer       String?  // SP entity ID
+  cert         String?  // X.509 cert for signature validation
+  // OIDC fields
+  clientId     String?
+  clientSecret String?
+  discoveryUrl String?  // .well-known/openid-configuration URL
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ─── Data Residency ──────────────────────────────────
+
+model DataResidencyConfig {
+  id           String   @id @default(uuid())
+  orgId        String   @unique
+  region       String   // eu, us, ap, custom
+  storageZone  String?  // specific zone (eu-west-1, us-east-1, etc.)
+  encryptionKey String? // org-specific encryption key identifier
+  retentionDays Int     @default(365) // data retention period
+  deletionPolicy String @default("soft") // soft, hard
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ─── Terms of Service / DPA Acceptance ────────────────
+
+model TermsAcceptance {
+  id           String   @id @default(uuid())
+  userId       String
+  documentType String   // tos, dpa, privacy_policy
+  documentVersion String // e.g. "2.1"
+  acceptedAt   DateTime @default(now())
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+}
+
+model LegalDocument {
+  id           String   @id @default(uuid())
+  type         String   // tos, dpa, privacy_policy
+  version      String   // e.g. "2.1"
+  title        String
+  content      String   // full text / markdown
+  effectiveDate DateTime
+  supersedes   String?  // previous version ID
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  @@unique([type, version])
 }
 
 // ─── Clause Benchmarks ───────────────────────────────
