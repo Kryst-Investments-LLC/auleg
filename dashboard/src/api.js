@@ -817,3 +817,75 @@ export async function checkBetaStatus() {
   const data = await res.json();
   return data.beta === true;
 }
+
+// ─── Enterprise: Audit Logs ───────────────────────────
+
+export async function getAuditLogs(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return apiFetch(`/audit-logs${qs ? '?' + qs : ''}`);
+}
+
+export async function exportAuditLogs(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  const res = await fetch(`${API_BASE}/audit-logs/export${qs ? '?' + qs : ''}`, { credentials: 'include' });
+  if (!res.ok) throw new Error('Export failed');
+  return res.blob();
+}
+
+export async function applyAuditLogRetention(retentionDays) {
+  return apiFetch('/audit-logs/retention', {
+    method: 'POST',
+    body: JSON.stringify({ retentionDays })
+  });
+}
+
+export async function getAuditLogStats() {
+  return apiFetch('/audit-logs/stats');
+}
+
+// ─── Enterprise: Data Residency ───────────────────────
+
+export async function getDataResidency() {
+  return apiFetch('/data-residency');
+}
+
+export async function updateDataResidency(data) {
+  return apiFetch('/data-residency', {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  });
+}
+
+// ─── Enterprise: Terms of Service ─────────────────────
+
+export async function getCurrentTerms() {
+  return apiFetch('/terms/current');
+}
+
+export async function getTermsStatus() {
+  return apiFetch('/terms/status');
+}
+
+export async function acceptTerms(documentType, documentVersion) {
+  return apiFetch('/terms/accept', {
+    method: 'POST',
+    body: JSON.stringify({ documentType, documentVersion })
+  });
+}
+
+export async function createLegalDocument(data) {
+  return apiFetch('/terms/documents', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+// ─── Enterprise: SLA & Health ─────────────────────────
+
+export async function getSlaStatus() {
+  return apiFetch('/health/sla');
+}
+
+export async function getReadiness() {
+  return apiFetch('/health/ready');
+}

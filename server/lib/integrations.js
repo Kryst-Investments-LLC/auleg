@@ -226,47 +226,57 @@ async function grcPushResults(userId, orgId, provider, auditData) {
 // ─── SSO/SAML Config ─────────────────────────────────
 
 async function saveSsoConfig(orgId, data) {
-  const existing = await prisma.ssoConfig.findUnique({ where: { orgId } });
+  const existing = await prisma.sSOConfig.findUnique({ where: { orgId } });
 
   if (existing) {
-    return prisma.ssoConfig.update({
+    return prisma.sSOConfig.update({
       where: { orgId },
       data: {
         provider: data.provider,
-        entityId: data.entityId,
-        ssoUrl: data.ssoUrl,
-        certificate: data.certificate,
-        metadataUrl: data.metadataUrl,
-        active: data.active !== false
+        entryPoint: data.ssoUrl || data.entryPoint,
+        issuer: data.entityId || data.issuer,
+        cert: data.certificate || data.cert,
+        discoveryUrl: data.metadataUrl || data.discoveryUrl,
+        clientId: data.clientId,
+        clientSecret: data.clientSecret,
+        enabled: data.active !== false
       }
     });
   }
 
-  return prisma.ssoConfig.create({
+  return prisma.sSOConfig.create({
     data: {
       orgId,
-      provider: data.provider,
-      entityId: data.entityId,
-      ssoUrl: data.ssoUrl,
-      certificate: data.certificate,
-      metadataUrl: data.metadataUrl,
-      active: data.active !== false
+      provider: data.provider === 'okta' || data.provider === 'azure_ad' || data.provider === 'onelogin' ? 'saml' : data.provider,
+      entryPoint: data.ssoUrl || data.entryPoint,
+      issuer: data.entityId || data.issuer,
+      cert: data.certificate || data.cert,
+      discoveryUrl: data.metadataUrl || data.discoveryUrl,
+      clientId: data.clientId,
+      clientSecret: data.clientSecret,
+      enabled: data.active !== false
     }
   });
 }
 
 async function getSsoConfig(orgId) {
-  const config = await prisma.ssoConfig.findUnique({ where: { orgId } });
+  const config = await prisma.sSOConfig.findUnique({ where: { orgId } });
   if (!config) return null;
-  // Mask certificate
+  // Map to legacy format for backward compat with frontend
   return {
-    ...config,
-    certificate: config.certificate ? `${config.certificate.substring(0, 40)}...` : null
+    id: config.id,
+    orgId: config.orgId,
+    provider: config.provider,
+    entityId: config.issuer,
+    ssoUrl: config.entryPoint,
+    certificate: config.cert ? `${config.cert.substring(0, 40)}...` : null,
+    metadataUrl: config.discoveryUrl,
+    active: config.enabled
   };
 }
 
 async function deleteSsoConfig(orgId) {
-  return prisma.ssoConfig.delete({ where: { orgId } });
+  return prisma.sSOConfig.delete({ where: { orgId } });
 }
 
 // ─── Custom Frameworks ───────────────────────────────

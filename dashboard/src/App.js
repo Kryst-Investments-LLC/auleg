@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
-import { getMe, logout, checkBetaStatus } from './api';
+import { getMe, logout, checkBetaStatus, getTermsStatus, acceptTerms } from './api';
 import AuthPage from './AuthPage';
 import AuditPage from './AuditPage';
 import AdminPage from './AdminPage';
@@ -39,6 +39,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [isBeta, setIsBeta] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [pendingTerms, setPendingTerms] = useState(null);
   const [page, setPage] = useState('audits');
 
   useEffect(() => {
@@ -57,6 +58,25 @@ function App() {
     };
     init();
   }, []);
+
+  // Check terms acceptance after login
+  useEffect(() => {
+    if (!user) return;
+    const checkTerms = async () => {
+      try {
+        const status = await getTermsStatus();
+        if (!status.allAccepted && status.pending?.length > 0) {
+          setPendingTerms(status.pending);
+        } else {
+          setPendingTerms(null);
+        }
+      } catch {
+        // Terms endpoint may not be configured yet — skip
+        setPendingTerms(null);
+      }
+    };
+    checkTerms();
+  }, [user]);
 
   const handleLogin = (user) => {
     setUser(user);
@@ -101,6 +121,41 @@ function App() {
           setShowOnboarding(false);
         }}
       />
+    );
+  }
+
+  if (pendingTerms && pendingTerms.length > 0) {
+    return (
+      <div className="dashboard" style={{ maxWidth: 600, margin: '80px auto', padding: 32 }}>
+        <h2 style={{ marginBottom: 16 }}>Terms &amp; Conditions Update</h2>
+        <p style={{ marginBottom: 24, color: '#666' }}>
+          Please review and accept the following to continue using the platform:
+        </p>
+        {pendingTerms.map((term) => (
+          <div key={term.id} style={{ border: '1px solid #e0e0e0', borderRadius: 8, padding: 16, marginBottom: 12 }}>
+            <h3 style={{ margin: 0 }}>{term.title}</h3>
+            <p style={{ fontSize: 13, color: '#888', margin: '4px 0 8px' }}>Version {term.version} &middot; {term.type}</p>
+            {term.content && (
+              <div style={{ maxHeight: 200, overflow: 'auto', background: '#f9f9f9', padding: 12, borderRadius: 4, fontSize: 13, marginBottom: 12 }}>
+                {term.content}
+              </div>
+            )}
+            <button
+              className="btn-primary"
+              onClick={async () => {
+                try {
+                  await acceptTerms(term.id);
+                  setPendingTerms((prev) => prev.filter((t) => t.id !== term.id));
+                } catch (err) {
+                  alert('Failed to accept terms: ' + (err.message || 'Unknown error'));
+                }
+              }}
+            >
+              I Accept
+            </button>
+          </div>
+        ))}
+      </div>
     );
   }
 
