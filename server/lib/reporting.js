@@ -7,6 +7,7 @@
 
 const crypto = require('crypto');
 const prisma = require('./prisma');
+const { requireAccessibleAudit, notFound } = require('./access');
 
 // ─── Board-Ready Report Generation ───────────────────
 
@@ -14,8 +15,8 @@ const prisma = require('./prisma');
  * Generate a structured board report from audit data.
  * Returns HTML that can be converted to PDF on the frontend.
  */
-async function generateBoardReport(auditId) {
-  const audit = await prisma.audit.findUnique({ where: { id: auditId } });
+async function generateBoardReport(auditId, user) {
+  const audit = await requireAccessibleAudit(user, auditId);
   if (!audit || !audit.reportJson) throw new Error('Audit not found or incomplete');
 
   const report = JSON.parse(audit.reportJson);
@@ -93,8 +94,8 @@ async function generateBoardReport(auditId) {
 
 // ─── Compliance Certificates ──────────────────────────
 
-async function issueCertificate(auditId, userId, data) {
-  const audit = await prisma.audit.findUnique({ where: { id: auditId } });
+async function issueCertificate(auditId, user, data) {
+  const audit = await requireAccessibleAudit(user, auditId);
   if (!audit) throw new Error('Audit not found');
   if (audit.riskScore == null || audit.riskScore >= 60) {
     throw new Error(`Compliance score too low (${audit.riskScore || 0}). Minimum threshold: score < 60 risk.`);
@@ -114,12 +115,12 @@ async function issueCertificate(auditId, userId, data) {
       frameworks: data.frameworks || 'GDPR',
       validFrom,
       validUntil,
-      userId
+      userId: user.id
     }
   });
 
   // Log evidence
-  await logEvidence(auditId, 'certificate_issued', userId, null,
+  await logEvidence(auditId, 'certificate_issued', user.id, user.name || user.email,
     `Certificate ${certNumber} issued. Valid until ${validUntil.toISOString().split('T')[0]}.`);
 
   return cert;
@@ -132,8 +133,10 @@ async function getCertificates(userId) {
   });
 }
 
-async function getCertificate(id) {
-  return prisma.complianceCertificate.findUnique({ where: { id } });
+async function getCertificate(id, user) {
+  return prisma.complianceCertificate.findFirst({
+    where: { id, userId: user.id }
+  });
 }
 
 async function verifyCertificate(certNumber) {
@@ -146,9 +149,14 @@ async function verifyCertificate(certNumber) {
   return { valid: true, cert };
 }
 
-async function revokeCertificate(id) {
+async function revokeCertificate(id, user) {
+  const certificate = await getCertificate(id, user);
+  if (!certificate) {
+    throw notFound('Certificate not found');
+  }
+
   return prisma.complianceCertificate.update({
-    where: { id },
+    where: { id: certificate.id },
     data: { status: 'revoked' }
   });
 }
@@ -168,7 +176,9 @@ async function logEvidence(auditId, action, actorId, actorName, detail, metadata
   });
 }
 
-async function getEvidenceTrail(auditId) {
+async function getEvidenceTrail(auditId, user) {
+  await requireAccessibleAudit(user, auditId, { select: { id: true } });
+
   return prisma.auditEvidence.findMany({
     where: { auditId },
     orderBy: { createdAt: 'asc' }
@@ -178,11 +188,11 @@ async function getEvidenceTrail(auditId) {
 /**
  * Generate exportable evidence pack.
  */
-async function generateEvidencePack(auditId) {
-  const audit = await prisma.audit.findUnique({ where: { id: auditId } });
+async function generateEvidencePack(auditId, user) {
+  const audit = await requireAccessibleAudit(user, auditId);
   if (!audit) throw new Error('Audit not found');
 
-  const evidence = await getEvidenceTrail(auditId);
+  const evidence = await getEvidenceTrail(auditId, user);
   const certificates = await prisma.complianceCertificate.findMany({ where: { auditId } });
   const redlines = await prisma.redline.findMany({ where: { auditId } });
   const approvals = await prisma.approvalChain.findMany({
@@ -330,7 +340,9 @@ async function getPercentileRank(clause, score) {
 /**
  * Generate a corrected document by applying all remediation suggestions.
  */
-async function autoApplyRemediation(auditId, contractText) {
+async function autoApplyRemediation(auditId, contractText, user) {
+  await requireAccessibleAudit(user, auditId, { select: { id: true } });
+
   const redlines = await prisma.redline.findMany({
     where: { auditId },
     orderBy: { lineStart: 'asc' }

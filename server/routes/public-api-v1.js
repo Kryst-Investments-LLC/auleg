@@ -7,12 +7,14 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const { requireScope } = require('../middleware/scope');
 const prisma = require('../lib/prisma');
 const { enqueueAudit } = require('../lib/audit-worker');
 const ai = require('../lib/ai');
+const { normalizeAndValidateOutboundUrl } = require('../lib/url-security');
 
 router.use(auth);
 
@@ -23,7 +25,7 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOADS_DIR),
   filename: (req, file, cb) => {
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    cb(null, `${Date.now()}-${safeName}`);
+    cb(null, `${crypto.randomUUID()}-${safeName}`);
   }
 });
 const upload = multer({
@@ -343,10 +345,11 @@ router.post('/webhooks/:id/deliveries/:deliveryId/retry', requireScope('webhooks
     const crypto = require('crypto');
     const payload = delivery.payload;
     const signature = crypto.createHmac('sha256', webhook.secret).update(payload).digest('hex');
+    const safeUrl = await normalizeAndValidateOutboundUrl(webhook.url);
 
     let status = 'failed', statusCode = null, response = null, error = null;
     try {
-      const resp = await fetch(webhook.url, {
+      const resp = await fetch(safeUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

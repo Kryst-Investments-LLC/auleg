@@ -23,6 +23,10 @@ function isLive() {
   return !!stripe;
 }
 
+function isWebhookConfigured() {
+  return Boolean(stripe && STRIPE_WEBHOOK_SECRET);
+}
+
 /**
  * Create or retrieve a Stripe customer for an org.
  */
@@ -98,6 +102,7 @@ function planFromPriceId(priceId) {
 
 module.exports = {
   isLive,
+  isWebhookConfigured,
   getOrCreateCustomer,
   createCheckoutSession,
   createPortalSession,

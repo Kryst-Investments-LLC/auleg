@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
-import { isLoggedIn, getMe, logout, checkBetaStatus } from './api';
+import { getMe, logout, checkBetaStatus } from './api';
 import AuthPage from './AuthPage';
 import AuditPage from './AuditPage';
 import AdminPage from './AdminPage';
@@ -49,14 +49,10 @@ function App() {
         setIsBeta(beta);
       } catch {}
 
-      if (isLoggedIn()) {
-        try {
-          const me = await getMe();
-          setUser(me);
-        } catch {
-          logout();
-        }
-      }
+      try {
+        const me = await getMe();
+        setUser(me);
+      } catch {}
       setLoading(false);
     };
     init();
@@ -71,8 +67,8 @@ function App() {
     setPage('audits');
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     setUser(null);
     setPage('audits');
   };

@@ -39,7 +39,7 @@ router.post('/summary/:id', auth, async (req, res) => {
     return res.status(400).json({ error: 'Audit must be complete with a report' });
   }
   const report = JSON.parse(audit.reportJson);
-  const summary = ai.generateExecutiveSummary(audit, report);
+  const summary = await ai.generateExecutiveSummary(audit, report);
   res.json({ auditId: audit.id, summary });
 });
 
@@ -71,11 +71,11 @@ router.post('/analyze/:id', auth, async (req, res) => {
   if (clause) {
     const score = clauseScores[clause] ?? null;
     if (score === null) return res.status(404).json({ error: `Clause "${clause}" not found in report` });
-    const analysis = ai.analyzeClause(clause, score, report);
+    const analysis = await ai.analyzeClause(clause, score, report);
     return res.json({ auditId: audit.id, analysis });
   }
 
-  const analyses = Object.entries(clauseScores).map(([c, s]) => ai.analyzeClause(c, s, report));
+  const analyses = await Promise.all(Object.entries(clauseScores).map(([c, s]) => ai.analyzeClause(c, s, report)));
   res.json({ auditId: audit.id, analyses });
 });
 
@@ -101,7 +101,7 @@ router.post('/remediate/:id', auth, async (req, res) => {
     return res.status(400).json({ error: 'Audit must be complete with a report' });
   }
   const report = JSON.parse(audit.reportJson);
-  const plan = ai.generateRemediationPlan(audit, report);
+  const plan = await ai.generateRemediationPlan(audit, report);
   res.json({ auditId: audit.id, plan });
 });
 
@@ -127,7 +127,7 @@ router.post('/explain/:id', auth, async (req, res) => {
     return res.status(400).json({ error: 'Audit must be complete with a report' });
   }
   const report = JSON.parse(audit.reportJson);
-  const explanation = ai.explainRisk(audit, report);
+  const explanation = await ai.explainRisk(audit, report);
   res.json({ auditId: audit.id, explanation });
 });
 

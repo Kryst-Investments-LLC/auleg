@@ -32,7 +32,7 @@ router.post('/', async (req, res, next) => {
 
 router.delete('/:id', async (req, res, next) => {
   try {
-    await deleteIntegration(req.params.id);
+    await deleteIntegration(req.params.id, req.user.id, req.user.orgId);
     res.json({ message: 'Integration removed' });
   } catch (err) { next(err); }
 });
@@ -117,7 +117,7 @@ router.post('/frameworks', async (req, res, next) => {
 
 router.get('/frameworks/:id', async (req, res, next) => {
   try {
-    const fw = await getCustomFramework(req.params.id);
+    const fw = await getCustomFramework(req.params.id, req.user.id, req.user.orgId);
     if (!fw) return res.status(404).json({ error: 'Not found' });
     res.json(fw);
   } catch (err) { next(err); }
@@ -125,14 +125,14 @@ router.get('/frameworks/:id', async (req, res, next) => {
 
 router.put('/frameworks/:id', async (req, res, next) => {
   try {
-    const fw = await updateCustomFramework(req.params.id, req.body);
+    const fw = await updateCustomFramework(req.params.id, req.user.id, req.user.orgId, req.body);
     res.json(fw);
   } catch (err) { next(err); }
 });
 
 router.delete('/frameworks/:id', async (req, res, next) => {
   try {
-    await deleteCustomFramework(req.params.id);
+    await deleteCustomFramework(req.params.id, req.user.id, req.user.orgId);
     res.json({ message: 'Framework deleted' });
   } catch (err) { next(err); }
 });
@@ -156,7 +156,7 @@ router.post('/alerts/generate', async (req, res, next) => {
 
 router.patch('/alerts/:id/read', async (req, res, next) => {
   try {
-    await markAlertRead(req.params.id);
+    await markAlertRead(req.params.id, req.user.id);
     res.json({ message: 'Alert marked as read' });
   } catch (err) { next(err); }
 });

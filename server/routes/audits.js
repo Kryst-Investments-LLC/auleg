@@ -2,12 +2,14 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const prisma = require('../lib/prisma');
 const authMiddleware = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
 const { activityFromReq } = require('../lib/activity');
 const { enqueueAudit, getQueueStatus } = require('../lib/audit-worker');
 const { requireQuota, incrementUsage } = require('../lib/billing');
+const { buildUserOrgScope } = require('../lib/access');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -20,7 +22,7 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOADS_DIR),
   filename: (req, file, cb) => {
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    cb(null, `${Date.now()}-${safeName}`);
+    cb(null, `${crypto.randomUUID()}-${safeName}`);
   }
 });
 
@@ -82,7 +84,8 @@ router.post('/', upload.single('contract'), async (req, res, next) => {
         contractName: req.file.originalname,
         contractPath: req.file.path,
         status: 'processing',
-        userId: req.user.id
+        userId: req.user.id,
+        orgId: req.user.orgId || null
       }
     });
 
@@ -132,6 +135,18 @@ router.post('/batch', upload.array('contracts', 10), async (req, res, next) => {
       return res.status(400).json({ error: 'No contract files uploaded' });
     }
 
+    // Check quota before processing any files
+    const { checkLimit } = require('../lib/billing');
+    const quota = await checkLimit(req.user.id, 'audits');
+    if (!quota.allowed || (quota.limit !== -1 && quota.current + req.files.length > quota.limit)) {
+      // Clean up all uploaded files
+      for (const file of req.files) fs.unlink(file.path, () => {});
+      return res.status(402).json({
+        error: `Audit quota exceeded. You have ${quota.limit - quota.current} of ${quota.limit} audits remaining this period.`,
+        resource: 'audits', current: quota.current, limit: quota.limit
+      });
+    }
+
     const results = [];
     for (const file of req.files) {
       const audit = await prisma.audit.create({
@@ -139,10 +154,13 @@ router.post('/batch', upload.array('contracts', 10), async (req, res, next) => {
           contractName: file.originalname,
           contractPath: file.path,
           status: 'processing',
-          userId: req.user.id
+          userId: req.user.id,
+          orgId: req.user.orgId || null
         }
       });
 
+      await incrementUsage(req.user.id, 'audits');
+      await incrementUsage(req.user.id, 'storage', file.size / (1024 * 1024));
       enqueueAudit(audit.id, file.path, req.user.id, req.user.email);
       results.push({ id: audit.id, contractName: file.originalname, status: 'processing' });
     }
@@ -198,8 +216,8 @@ router.get('/', async (req, res, next) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const skip = (page - 1) * limit;
 
-    // Build filter conditions
-    const where = { userId: req.user.id };
+    // Build filter conditions — org-scoped
+    const where = buildUserOrgScope(req.user);
     if (req.query.status) where.status = req.query.status;
     if (req.query.risk) where.overallRisk = req.query.risk;
     if (req.query.search) where.contractName = { contains: req.query.search };
@@ -254,7 +272,7 @@ router.get('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const audit = await prisma.audit.findFirst({
-      where: { id: req.params.id, userId: req.user.id }
+      where: buildUserOrgScope(req.user, { id: req.params.id })
     });
 
     if (!audit) {
@@ -293,7 +311,7 @@ router.get('/:id', async (req, res, next) => {
 router.delete('/:id', async (req, res, next) => {
   try {
     const audit = await prisma.audit.findFirst({
-      where: { id: req.params.id, userId: req.user.id }
+      where: buildUserOrgScope(req.user, { id: req.params.id })
     });
 
     if (!audit) {
@@ -333,7 +351,7 @@ router.delete('/:id', async (req, res, next) => {
 router.post('/:id/re-audit', async (req, res, next) => {
   try {
     const parent = await prisma.audit.findFirst({
-      where: { id: req.params.id, userId: req.user.id }
+      where: buildUserOrgScope(req.user, { id: req.params.id })
     });
     if (!parent) return res.status(404).json({ error: 'Audit not found' });
     if (!parent.contractPath || !fs.existsSync(parent.contractPath)) {

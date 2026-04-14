@@ -1,0 +1,153 @@
+DATA PROCESSING AGREEMENT
+
+This Data Processing Agreement ("DPA") is entered into as of January 15, 2026, by and between:
+
+Data Controller: Acme Global Solutions Inc., a Delaware corporation with offices at 500 Market Street, Suite 300, San Francisco, CA 94105 ("Controller")
+
+Data Processor: CloudStack Analytics Ltd., a company incorporated in Ireland with offices at 42 Grand Canal Square, Dublin 2, Ireland ("Processor")
+
+RECITALS
+
+WHEREAS, Controller and Processor entered into a Master Services Agreement dated November 1, 2025 ("MSA") under which Processor provides data analytics and cloud infrastructure services to Controller;
+
+WHEREAS, in the course of providing Services, Processor will process Personal Data on behalf of Controller;
+
+NOW, THEREFORE, the parties agree as follows:
+
+1. DEFINITIONS
+
+1.1 "Personal Data" means any information relating to an identified or identifiable natural person as defined under Applicable Data Protection Laws.
+
+1.2 "Processing" means any operation performed on Personal Data, including collection, recording, organization, structuring, storage, adaptation, retrieval, consultation, use, disclosure, dissemination, restriction, erasure, or destruction.
+
+1.3 "Data Subject" means the identified or identifiable natural person to whom Personal Data relates.
+
+1.4 "Applicable Data Protection Laws" means all laws and regulations applicable to the processing of Personal Data under this Agreement, including but not limited to the General Data Protection Regulation (EU) 2016/679 ("GDPR"), the California Consumer Privacy Act ("CCPA"), and the UK Data Protection Act 2018.
+
+1.5 "Sub-processor" means any third party engaged by Processor to process Personal Data on behalf of Controller.
+
+1.6 "Security Incident" means any breach of security leading to the accidental or unlawful destruction, loss, alteration, unauthorized disclosure of, or access to Personal Data.
+
+2. SCOPE AND PURPOSE OF PROCESSING
+
+2.1 Processor shall process Personal Data solely for the purpose of providing the Services described in the MSA and as documented in Annex A.
+
+2.2 Categories of Data Subjects: Employees, customers, and business contacts of Controller.
+
+2.3 Types of Personal Data: Name, email address, phone number, IP address, browser information, usage analytics, transaction history, and account preferences.
+
+2.4 Duration: Processing shall continue for the term of the MSA plus 30 days for data return or deletion.
+
+3. OBLIGATIONS OF THE PROCESSOR
+
+3.1 Processor shall process Personal Data only on documented instructions from Controller, unless required by EU or Member State law.
+
+3.2 Processor shall ensure that persons authorized to process Personal Data have committed themselves to confidentiality.
+
+3.3 Processor shall implement appropriate technical and organizational measures to ensure a level of security appropriate to the risk, including:
+   (a) Encryption of Personal Data in transit using TLS 1.2;
+   (b) Access controls and authentication mechanisms;
+   (c) Regular testing and evaluation of security measures.
+
+NOTE: Encryption at rest is not currently implemented but is planned for Q3 2026.
+
+3.4 Processor shall assist Controller in responding to Data Subject requests under Chapter III of the GDPR.
+
+3.5 Processor shall assist Controller in ensuring compliance with Articles 32 to 36 of the GDPR.
+
+3.6 Processor shall, at the choice of Controller, delete or return all Personal Data after the end of the provision of Services.
+
+3.7 Processor shall make available to Controller all information necessary to demonstrate compliance with this DPA and allow for audits.
+
+4. SUB-PROCESSING
+
+4.1 Controller provides general authorization for Processor to engage Sub-processors.
+
+4.2 Processor shall inform Controller of any intended changes concerning the addition or replacement of Sub-processors, giving Controller the opportunity to object.
+
+4.3 Current Sub-processors are listed in Annex B.
+
+4.4 Processor shall ensure that Sub-processors are bound by data protection obligations no less protective than those in this DPA.
+
+5. DATA TRANSFERS
+
+5.1 Processor may transfer Personal Data to the United States for processing and storage purposes.
+
+5.2 For transfers outside the EEA, Processor shall rely on Standard Contractual Clauses as approved by the European Commission.
+
+5.3 Processor self-certifies compliance with applicable data transfer mechanisms.
+
+6. SECURITY INCIDENT NOTIFICATION
+
+6.1 Processor shall notify Controller of any Security Incident without undue delay.
+
+6.2 Notification shall include:
+   (a) Description of the nature of the incident;
+   (b) Likely consequences of the incident;
+   (c) Measures taken to address the incident.
+
+NOTE: No specific timeline is provided for breach notification. Number of affected data subjects is not required in notification.
+
+7. DATA PROTECTION IMPACT ASSESSMENT
+
+7.1 Processor shall provide reasonable assistance to Controller with data protection impact assessments and prior consultations with supervisory authorities as required under Articles 35 and 36 of the GDPR.
+
+8. DATA RETENTION AND DELETION
+
+8.1 Upon termination of the MSA, Processor shall delete all Personal Data within 180 days unless retention is required by applicable law.
+
+8.2 Processor may retain anonymized or aggregated data indefinitely for analytics purposes.
+
+9. AUDIT RIGHTS
+
+9.1 Processor shall provide Controller with summary reports of its data processing activities upon written request.
+
+9.2 On-site audits may be conducted with 90 days prior written notice and are limited to once every two years.
+
+10. LIABILITY AND INDEMNIFICATION
+
+10.1 Each party shall be liable for damages caused by its breach of this DPA.
+
+10.2 Processor's total aggregate liability under this DPA shall not exceed the fees paid by Controller under the MSA in the 3 months preceding the claim.
+
+11. GOVERNING LAW AND JURISDICTION
+
+11.1 This DPA shall be governed by the laws of Ireland.
+
+11.2 Any disputes shall be resolved through binding arbitration in Dublin, Ireland.
+
+12. TERM AND TERMINATION
+
+12.1 This DPA shall remain in effect for the duration of the MSA.
+
+12.2 Obligations regarding data deletion and confidentiality shall survive termination.
+
+ANNEX A - DETAILS OF PROCESSING
+
+Purpose: Cloud analytics, data warehousing, business intelligence reporting
+Data Subjects: Controller's employees, end-user customers, business partners
+Data Categories: Contact information, account data, usage data, transaction records, health-related survey responses
+Processing Operations: Collection, storage, analysis, reporting, transmission, profiling
+Retention Period: Duration of MSA plus 180 days
+
+ANNEX B - APPROVED SUB-PROCESSORS
+
+1. Amazon Web Services (AWS) - Cloud infrastructure hosting - United States
+2. Snowflake Inc. - Data warehousing - United States
+3. Datadog Inc. - System monitoring and logging - United States
+4. Twilio Inc. - Communication services - United States
+5. TechOps Solutions - IT support and maintenance - India (no DPA in place)
+
+IN WITNESS WHEREOF, the parties have executed this Data Processing Agreement.
+
+Controller: Acme Global Solutions Inc.
+By: ___________________________
+Name: Sarah Chen
+Title: Chief Privacy Officer
+Date: January 15, 2026
+
+Processor: CloudStack Analytics Ltd.
+By: ___________________________
+Name: James O'Brien
+Title: Data Protection Officer
+Date: January 15, 2026

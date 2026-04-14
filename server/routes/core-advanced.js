@@ -4,6 +4,7 @@ const authMiddleware = require('../middleware/auth');
 const prisma = require('../lib/prisma');
 const { analyzeDocument, saveRedlines, getRedlines, updateRedlineStatus, generateRedlinedDocument } = require('../lib/redlining');
 const { detectJurisdictions, buildGapMatrix, getCriticalGaps } = require('../lib/jurisdiction');
+const { requireAccessibleAudit } = require('../lib/access');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -13,8 +14,7 @@ router.use(authMiddleware);
 /** Run redline analysis on an audit's contract text */
 router.post('/redline/:auditId', async (req, res, next) => {
   try {
-    const audit = await prisma.audit.findUnique({ where: { id: req.params.auditId } });
-    if (!audit) return res.status(404).json({ error: 'Audit not found' });
+    const audit = await requireAccessibleAudit(req.user, req.params.auditId);
 
     // Read the contract text
     let text = '';
@@ -45,6 +45,7 @@ router.post('/redline/:auditId', async (req, res, next) => {
 /** Get redlines for an audit */
 router.get('/redline/:auditId', async (req, res, next) => {
   try {
+    await requireAccessibleAudit(req.user, req.params.auditId, { select: { id: true } });
     const redlines = await getRedlines(req.params.auditId, req.query);
     res.json({ redlines });
   } catch (err) { next(err); }
@@ -57,6 +58,17 @@ router.patch('/redline/:id/status', async (req, res, next) => {
     if (!['accepted', 'rejected', 'modified', 'pending'].includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
+
+    const redline = await prisma.redline.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, auditId: true }
+    });
+    if (!redline) {
+      return res.status(404).json({ error: 'Redline not found' });
+    }
+
+    await requireAccessibleAudit(req.user, redline.auditId, { select: { id: true } });
+
     const updated = await updateRedlineStatus(req.params.id, status, modifiedText);
     res.json(updated);
   } catch (err) { next(err); }
@@ -65,8 +77,7 @@ router.patch('/redline/:id/status', async (req, res, next) => {
 /** Generate corrected document with accepted changes */
 router.post('/redline/:auditId/apply', async (req, res, next) => {
   try {
-    const audit = await prisma.audit.findUnique({ where: { id: req.params.auditId } });
-    if (!audit) return res.status(404).json({ error: 'Audit not found' });
+    const audit = await requireAccessibleAudit(req.user, req.params.auditId);
 
     let text = req.body.text || '';
     if (!text && audit.contractPath && fs.existsSync(audit.contractPath)) {
@@ -83,8 +94,7 @@ router.post('/redline/:auditId/apply', async (req, res, next) => {
 /** Detect jurisdictions from audit text */
 router.get('/jurisdictions/:auditId', async (req, res, next) => {
   try {
-    const audit = await prisma.audit.findUnique({ where: { id: req.params.auditId } });
-    if (!audit) return res.status(404).json({ error: 'Audit not found' });
+    const audit = await requireAccessibleAudit(req.user, req.params.auditId);
 
     let text = '';
     if (audit.contractPath && fs.existsSync(audit.contractPath)) {
@@ -101,7 +111,7 @@ router.get('/jurisdictions/:auditId', async (req, res, next) => {
 /** Get gap matrix for an audit */
 router.get('/gap-matrix/:auditId', async (req, res, next) => {
   try {
-    const audit = await prisma.audit.findUnique({ where: { id: req.params.auditId } });
+    const audit = await requireAccessibleAudit(req.user, req.params.auditId);
     if (!audit || !audit.reportJson) return res.status(404).json({ error: 'Audit not found or incomplete' });
 
     const report = JSON.parse(audit.reportJson);
@@ -143,7 +153,7 @@ router.get('/gap-matrix/:auditId', async (req, res, next) => {
 /** Get confidence scores for each clause in an audit */
 router.get('/confidence/:auditId', async (req, res, next) => {
   try {
-    const audit = await prisma.audit.findUnique({ where: { id: req.params.auditId } });
+    const audit = await requireAccessibleAudit(req.user, req.params.auditId);
     if (!audit || !audit.reportJson) return res.status(404).json({ error: 'Audit not found or incomplete' });
 
     const report = JSON.parse(audit.reportJson);

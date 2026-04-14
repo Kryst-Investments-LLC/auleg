@@ -25,13 +25,15 @@ function Api($method, $path, $body = $null, $token = $null) {
   Invoke-RestMethod @params
 }
 
+. "$PSScriptRoot\test-helpers.ps1"
+
 Write-Host "`n=== Phase 8: AI Enhancements E2E ===" -ForegroundColor Cyan
 
 # Setup: Register + Login
 $ts = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 $email = "ai-test-$ts@test.com"
-try { Api 'POST' '/auth/register' @{email=$email;password='Test1234!';name='AI Tester'} } catch {}
-$login = Api 'POST' '/auth/login' @{email=$email;password='Test1234!'}
+try { Auth-Register $base (@{email=$email;password='Test1234!';name='AI Tester'} | ConvertTo-Json) } catch {}
+$login = Auth-Login $base (@{email=$email;password='Test1234!'} | ConvertTo-Json)
 $token = $login.token
 
 Write-Host "`nUser registered & logged in: $email" -ForegroundColor Gray

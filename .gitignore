@@ -29,6 +29,10 @@ Thumbs.db
 # Prisma
 # server/prisma/migrations/ — tracked for PostgreSQL migrations
 
+# Test artifacts
+.tmp/
+.smoke-pg-data/
+
 # Logs
 *.log
 npm-debug.log*

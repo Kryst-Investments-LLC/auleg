@@ -13,16 +13,28 @@ datasource db {
 }
 
 model User {
+  id                  String   @id @default(uuid())
+  email               String   @unique
+  password            String
+  name                String?
+  role                String   @default("auditor") // admin, auditor, viewer
+  orgId               String?
+  org                 Org?     @relation(fields: [orgId], references: [id])
+  audits              Audit[]
+  failedLoginAttempts Int      @default(0)
+  lockedUntil         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model PasswordResetToken {
   id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String?
-  role      String   @default("auditor") // admin, auditor, viewer
-  orgId     String?
-  org       Org?     @relation(fields: [orgId], references: [id])
-  audits    Audit[]
+  tokenHash String   @unique // SHA-256 hash of the token
+  userId    String
+  email     String
+  expiresAt DateTime
+  used      Boolean  @default(false)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model Org {
@@ -73,7 +85,9 @@ model Webhook {
   id        String   @id @default(uuid())
   url       String
   events    String   // comma-separated: audit.complete,audit.failed
-  secret    String   // HMAC signing secret
+  secretEncrypted String   // AES-256-GCM encrypted HMAC signing secret
+  secretIv  String   // Initialization vector for decryption
+  secretTag String   // Auth tag for decryption
   active    Boolean  @default(true)
   userId    String
   createdAt DateTime @default(now())

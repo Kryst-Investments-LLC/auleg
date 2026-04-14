@@ -20,8 +20,16 @@ function validateEnv() {
   }
 
   // Warn on insecure defaults
-  if (process.env.JWT_SECRET === 'change-this-to-a-secure-random-string-in-production' && process.env.NODE_ENV === 'production') {
-    errors.push('JWT_SECRET is using the default insecure value in production');
+  if (process.env.JWT_SECRET === 'change-this-to-a-secure-random-string-in-production') {
+    if (process.env.NODE_ENV !== 'development') {
+      errors.push('JWT_SECRET is using the default insecure value. Set a secure random string.');
+    } else {
+      console.warn('WARNING: JWT_SECRET is using the default insecure value. Do not use in production.');
+    }
+  }
+
+  if (process.env.NODE_ENV === 'production' && process.env.STRIPE_SECRET_KEY && !process.env.STRIPE_WEBHOOK_SECRET) {
+    errors.push('STRIPE_WEBHOOK_SECRET is required when Stripe billing is enabled in production');
   }
 
   // Set optional defaults

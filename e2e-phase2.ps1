@@ -1,5 +1,6 @@
 $ErrorActionPreference = "Stop"
 $api = "http://localhost:4000/api"
+. "$PSScriptRoot\tests\test-helpers.ps1"
 
 function Log($step, $msg) { Write-Host "[$step] $msg" }
 
@@ -9,14 +10,14 @@ $auditorEmail = "auditor_$ts@test.com"
 
 # 1. Register admin user
 $body = @{ email = $adminEmail; password = "Admin12345!"; name = "Admin" } | ConvertTo-Json
-$reg = Invoke-RestMethod -Uri "$api/auth/register" -Method POST -Body $body -ContentType "application/json"
+$reg = Auth-Register $api $body
 $adminToken = $reg.token
 $adminId = $reg.user.id
 Log "1-REGISTER-ADMIN" "$adminEmail id=$adminId"
 
 # 2. Register auditor user
 $body2 = @{ email = $auditorEmail; password = "Audit12345!"; name = "Auditor" } | ConvertTo-Json
-$reg2 = Invoke-RestMethod -Uri "$api/auth/register" -Method POST -Body $body2 -ContentType "application/json"
+$reg2 = Auth-Register $api $body2
 $auditorToken = $reg2.token
 $auditorId = $reg2.user.id
 Log "2-REGISTER-AUDITOR" "$auditorEmail id=$auditorId"
@@ -41,13 +42,18 @@ Log "4-ORG-CREATE" "org=$($org.name) id=$($org.id)"
 
 # After creating org, user becomes admin. Re-login to get updated token
 $loginBody = @{ email = $adminEmail; password = "Admin12345!" } | ConvertTo-Json
-$loginResp = Invoke-RestMethod -Uri "$api/auth/login" -Method POST -Body $loginBody -ContentType "application/json"
+$loginResp = Auth-Login $api $loginBody
 $adminToken = $loginResp.token
 Log "4b-RELOGIN" "role=$($loginResp.user.role)"
 
 # 5. Admin: list users
 $users = Invoke-RestMethod -Uri "$api/admin/users" -Headers @{ Authorization = "Bearer $adminToken" }
 Log "5-ADMIN-USERS" "total=$($users.total)"
+
+# 5b. Invite auditor to org (must be in same org before admin can manage their role)
+$inviteBody = @{ email = $auditorEmail; role = "auditor" } | ConvertTo-Json
+$invite = Invoke-RestMethod -Uri "$api/orgs/invite" -Method POST -Body $inviteBody -ContentType "application/json" -Headers @{ Authorization = "Bearer $adminToken" }
+Log "5b-ORG-INVITE" $invite.message
 
 # 6. Admin: change auditor's role to viewer
 $roleBody = @{ role = "viewer" } | ConvertTo-Json
@@ -59,14 +65,9 @@ $roleBody2 = @{ role = "auditor" } | ConvertTo-Json
 Invoke-RestMethod -Uri "$api/admin/users/$auditorId/role" -Method PATCH -Body $roleBody2 -ContentType "application/json" -Headers @{ Authorization = "Bearer $adminToken" } | Out-Null
 Log "7-ROLE-RESTORE" "restored to auditor"
 
-# 8. Invite auditor to org
-$inviteBody = @{ email = $auditorEmail; role = "auditor" } | ConvertTo-Json
-$invite = Invoke-RestMethod -Uri "$api/orgs/invite" -Method POST -Body $inviteBody -ContentType "application/json" -Headers @{ Authorization = "Bearer $adminToken" }
-Log "8-ORG-INVITE" $invite.message
-
-# 9. Get org details
+# 8. Get org details (invite already done in 5b)
 $myOrg = Invoke-RestMethod -Uri "$api/orgs/mine" -Headers @{ Authorization = "Bearer $adminToken" }
-Log "9-ORG-DETAILS" "name=$($myOrg.org.name) members=$($myOrg.org.users.Count)"
+Log "8-ORG-DETAILS" "name=$($myOrg.org.name) members=$($myOrg.org.users.Count)"
 
 # 10. Upload two contracts (for comparison)
 $sampleDpa = Join-Path $PSScriptRoot "sample-dpa.txt"
@@ -125,7 +126,7 @@ Log "18-ORG-REMOVE" "members=$($myOrg2.org.users.Count)"
 # 19. Viewer role denied from uploading (viewer can list but not create)
 # Re-login auditor to get fresh token
 $loginBody3 = @{ email = $auditorEmail; password = "Audit12345!" } | ConvertTo-Json
-$loginResp3 = Invoke-RestMethod -Uri "$api/auth/login" -Method POST -Body $loginBody3 -ContentType "application/json"
+$loginResp3 = Auth-Login $api $loginBody3
 $auditorToken = $loginResp3.token
 # Auditor should still be able to upload
 $audit3 = Upload-Contract $auditorToken $sampleDpa

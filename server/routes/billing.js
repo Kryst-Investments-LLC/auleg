@@ -1,6 +1,7 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const authMiddleware = require('../middleware/auth');
+const { requireRole } = require('../middleware/rbac');
 const { PLANS, getPlan } = require('../lib/plans');
 const { getBillingAccount, incrementUsage } = require('../lib/billing');
 const { activityFromReq } = require('../lib/activity');
@@ -155,7 +156,7 @@ router.get('/usage', authMiddleware, async (req, res, next) => {
  *       200:
  *         description: Plan changed
  */
-router.post('/upgrade', authMiddleware, async (req, res, next) => {
+router.post('/upgrade', authMiddleware, requireRole('admin'), async (req, res, next) => {
   try {
     const { plan: newPlan } = req.body;
     if (!PLANS[newPlan]) {
@@ -239,12 +240,12 @@ router.post('/upgrade', authMiddleware, async (req, res, next) => {
       data: {
         orgId: user.orgId,
         type: isUpgrade ? 'plan.upgrade' : 'plan.downgrade',
-        detail: `${oldPlan} → ${newPlan}`,
+        detail: `${oldPlan} -> ${newPlan}`,
         amount: planConfig.price
       }
     });
 
-    await activityFromReq(req, 'billing.plan_change', `${oldPlan} → ${newPlan}`);
+    await activityFromReq(req, 'billing.plan_change', `${oldPlan} -> ${newPlan}`);
     await notify(req.user.id, 'billing.plan_change', 'Plan Changed',
       `Your plan has been ${isUpgrade ? 'upgraded' : 'changed'} to ${planConfig.name}.`);
 
@@ -349,10 +350,20 @@ router.post('/portal', authMiddleware, async (req, res, next) => {
  *         description: Webhook processed
  */
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const allowInsecureWebhook = process.env.NODE_ENV !== 'production'
+    && process.env.ALLOW_INSECURE_BILLING_WEBHOOKS === 'true';
   let eventType, eventData;
 
+  if (!stripeLib.isWebhookConfigured() && !allowInsecureWebhook) {
+    return res.status(503).json({ error: 'Billing webhook endpoint is disabled' });
+  }
+
   // Real Stripe webhook with signature verification
-  if (stripeLib.isLive() && req.headers['stripe-signature']) {
+  if (stripeLib.isWebhookConfigured()) {
+    if (!req.headers['stripe-signature']) {
+      return res.status(400).json({ error: 'Missing stripe signature' });
+    }
+
     try {
       const event = stripeLib.verifyWebhookSignature(req.body, req.headers['stripe-signature']);
       eventType = event.type;
@@ -363,7 +374,9 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     }
   } else {
     // Mock/dev mode — accept raw JSON
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const body = Buffer.isBuffer(req.body)
+      ? JSON.parse(req.body.toString('utf-8'))
+      : (typeof req.body === 'string' ? JSON.parse(req.body) : req.body);
     eventType = body.type;
     eventData = body.data;
   }
@@ -395,7 +408,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             }
           });
           await prisma.billingEvent.create({
-            data: { orgId, type: 'plan.upgrade', detail: `Checkout → ${newPlan}`, amount: planConfig.price }
+            data: { orgId, type: 'plan.upgrade', detail: `Checkout -> ${newPlan}`, amount: planConfig.price }
           });
         }
         break;
@@ -447,7 +460,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           });
           await prisma.org.update({ where: { id: orgId }, data: { plan: 'free' } });
           await prisma.billingEvent.create({
-            data: { orgId, type: 'plan.downgrade', detail: 'Subscription canceled → free' }
+            data: { orgId, type: 'plan.downgrade', detail: 'Subscription canceled -> free' }
           });
         }
         break;

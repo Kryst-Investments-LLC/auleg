@@ -34,6 +34,8 @@ function Api($method, $path, $body = $null, $token = $null) {
   Invoke-RestMethod @params
 }
 
+. "$PSScriptRoot\test-helpers.ps1"
+
 Write-Host "`n=== Phase 9: Production Hardening E2E ===" -ForegroundColor Cyan
 
 # ---- Health Check Tests ----
@@ -125,8 +127,8 @@ Write-Host "`n--- Input Sanitization ---" -ForegroundColor Yellow
 # Register + login
 $ts = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()  
 $email = "prod-test-$ts@test.com"
-try { Api 'POST' '/auth/register' @{email=$email;password='Test1234!';name='Prod Tester'} | Out-Null } catch {}
-$login = Api 'POST' '/auth/login' @{email=$email;password='Test1234!'}
+try { Auth-Register $base (@{email=$email;password='Test1234!';name='Prod Tester'} | ConvertTo-Json) | Out-Null } catch {}
+$login = Auth-Login $base (@{email=$email;password='Test1234!'} | ConvertTo-Json)
 $token = $login.token
 
 Test "Null bytes stripped from body" {
@@ -179,7 +181,7 @@ Test "Server started with valid config" {
 Write-Host "`n--- Regression: Auth still works ---" -ForegroundColor Yellow
 
 Test "Login still works after hardening" {
-  $r = Api 'POST' '/auth/login' @{email=$email;password='Test1234!'}
+  $r = Auth-Login $base (@{email=$email;password='Test1234!'} | ConvertTo-Json)
   $null -ne $r.token
 }
 

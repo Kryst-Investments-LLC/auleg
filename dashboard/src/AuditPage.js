@@ -17,6 +17,95 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
+function renderInlineFormattedText(text) {
+  return String(text || '').split(/(\*\*.*?\*\*)/g).filter(Boolean).map((part, index) => {
+    const match = part.match(/^\*\*(.*)\*\*$/);
+    if (match) {
+      return <strong key={index}>{match[1]}</strong>;
+    }
+
+    return <React.Fragment key={index}>{part}</React.Fragment>;
+  });
+}
+
+function renderFormattedText(text, options = {}) {
+  const headingStyle = options.headingStyle || {};
+  const lines = String(text || '').split(/\r?\n/);
+  const elements = [];
+  let listItems = [];
+  let listType = null;
+
+  const flushList = (key) => {
+    if (!listItems.length) return;
+
+    const ListTag = listType === 'ol' ? 'ol' : 'ul';
+    elements.push(
+      <ListTag key={`list-${key}`} style={{ margin: '0 0 12px 20px', lineHeight: 1.7 }}>
+        {listItems.map(item => (
+          <li key={item.key}>{renderInlineFormattedText(item.text)}</li>
+        ))}
+      </ListTag>
+    );
+
+    listItems = [];
+    listType = null;
+  };
+
+  lines.forEach((line, index) => {
+    const trimmed = line.trim();
+    const ordered = trimmed.match(/^\d+\.\s+(.*)$/);
+    const unordered = trimmed.match(/^[-*]\s+(.*)$/);
+
+    if (ordered) {
+      if (listType && listType !== 'ol') flushList(index);
+      listType = 'ol';
+      listItems.push({ key: `li-${index}`, text: ordered[1] });
+      return;
+    }
+
+    if (unordered) {
+      if (listType && listType !== 'ul') flushList(index);
+      listType = 'ul';
+      listItems.push({ key: `li-${index}`, text: unordered[1] });
+      return;
+    }
+
+    flushList(index);
+
+    if (!trimmed) {
+      elements.push(<div key={`spacer-${index}`} style={{ height: 12 }} />);
+      return;
+    }
+
+    if (trimmed.startsWith('## ')) {
+      elements.push(
+        <h2 key={`h2-${index}`} style={{ marginTop: 20, ...headingStyle }}>
+          {renderInlineFormattedText(trimmed.slice(3))}
+        </h2>
+      );
+      return;
+    }
+
+    if (trimmed.startsWith('### ')) {
+      elements.push(
+        <h3 key={`h3-${index}`} style={{ marginTop: 16 }}>
+          {renderInlineFormattedText(trimmed.slice(4))}
+        </h3>
+      );
+      return;
+    }
+
+    elements.push(
+      <p key={`p-${index}`} style={{ margin: '0 0 12px', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+        {renderInlineFormattedText(trimmed)}
+      </p>
+    );
+  });
+
+  flushList('final');
+  return elements;
+}
+
 export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, onSettings, onAnalytics, onBilling, onApiExplorer, onLegal, onAdvanced }) {
   const [audits, setAudits] = useState([]);
   const [selectedAudit, setSelectedAudit] = useState(null);
@@ -725,13 +814,9 @@ export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, o
             <h2 style={{ marginBottom: 0, color: '#a78bfa' }}>AI Executive Summary</h2>
             <button className="nav-btn" onClick={() => setView('report')}>&larr; Back</button>
           </div>
-          <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, fontSize: 14 }}
-            dangerouslySetInnerHTML={{ __html: aiData.summary
-              .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-              .replace(/^## (.*)/gm, '<h2 style="color:#a78bfa;margin-top:20px">$1</h2>')
-              .replace(/^### (.*)/gm, '<h3 style="margin-top:16px">$1</h3>')
-              .replace(/^\d+\.\s/gm, (m) => `<br/>${m}`)
-            }} />
+          <div style={{ fontSize: 14 }}>
+            {renderFormattedText(aiData.summary, { headingStyle: { color: '#a78bfa' } })}
+          </div>
         </div>
       )}
 
@@ -758,8 +843,9 @@ export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, o
                 </div>
               </div>
               {a.gdprArticle && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>GDPR: {a.gdprArticle}</div>}
-              <div style={{ marginTop: 8, fontSize: 14, lineHeight: 1.6 }}
-                dangerouslySetInnerHTML={{ __html: (a.analysis || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+              <div style={{ marginTop: 8, fontSize: 14 }}>
+                {renderFormattedText(a.analysis || '')}
+              </div>
               {a.bestPractice && (
                 <div style={{ marginTop: 8, padding: 8, background: 'rgba(34,197,94,0.06)', borderRadius: 6, fontSize: 13 }}>
                   <strong style={{ color: 'var(--accent-green)' }}>Best Practice:</strong> {a.bestPractice}
@@ -835,8 +921,9 @@ export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, o
             <h2 style={{ marginBottom: 0, color: '#a78bfa' }}>AI Risk Explanation</h2>
             <button className="nav-btn" onClick={() => setView('report')}>&larr; Back</button>
           </div>
-          <div style={{ marginBottom: 20, padding: 16, background: 'rgba(139,92,246,0.06)', borderRadius: 8, fontSize: 15, lineHeight: 1.7 }}
-            dangerouslySetInnerHTML={{ __html: aiData.explanation.explanation.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+          <div style={{ marginBottom: 20, padding: 16, background: 'rgba(139,92,246,0.06)', borderRadius: 8, fontSize: 15 }}>
+            {renderFormattedText(aiData.explanation.explanation)}
+          </div>
           <div style={{ marginBottom: 16, padding: 12, background: 'rgba(34,197,94,0.06)', borderRadius: 8, fontSize: 14 }}>
             <strong>Recommendation:</strong> {aiData.explanation.recommendation}
           </div>

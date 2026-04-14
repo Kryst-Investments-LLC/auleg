@@ -1,0 +1,130 @@
+name: Security Regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'dashboard/**'
+      - 'tests/**'
+      - 'test-contracts/**'
+      - 'sample-dpa.txt'
+      - 'e2e-phase2.ps1'
+      - 'e2e-smoke.ps1'
+      - '.github/workflows/security-regression.yml'
+  pull_request:
+    paths:
+      - 'server/**'
+      - 'dashboard/**'
+      - 'tests/**'
+      - 'test-contracts/**'
+      - 'sample-dpa.txt'
+      - 'e2e-phase2.ps1'
+      - 'e2e-smoke.ps1'
+      - '.github/workflows/security-regression.yml'
+  workflow_dispatch:
+
+jobs:
+  security-regression:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: auleg_ci
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d auleg_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres@127.0.0.1:5432/auleg_ci
+      JWT_SECRET: ci-smoke-secret
+      NODE_ENV: development
+      CORS_ORIGIN: http://localhost:3000
+      BETA_MODE: 'false'
+      ALLOW_INSECURE_BILLING_WEBHOOKS: 'true'
+      AUTH_RATE_LIMIT_MAX: '250'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            dashboard/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Install dashboard dependencies
+        working-directory: dashboard
+        run: npm ci
+
+      - name: Build dashboard
+        working-directory: dashboard
+        run: CI=false npm run build
+
+      - name: Generate Prisma Client
+        working-directory: server
+        run: npx prisma generate
+
+      - name: Push Prisma schema
+        working-directory: server
+        run: npx prisma db push
+
+      - name: Start API
+        working-directory: server
+        run: |
+          npm start > ../api.log 2>&1 &
+          echo $! > ../api.pid
+
+      - name: Start dashboard
+        run: |
+          python3 -m http.server 3000 --directory dashboard/build > dashboard.log 2>&1 &
+          echo $! > dashboard.pid
+
+      - name: Wait for API and dashboard
+        shell: bash
+        run: |
+          for attempt in {1..60}; do
+            if curl -fsS http://localhost:4000/api/health > /dev/null && curl -fsS http://localhost:3000 > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat api.log
+          cat dashboard.log
+          exit 1
+
+      - name: Run current and legacy E2E suites
+        shell: pwsh
+        run: ./tests/run-ci-suites.ps1
+
+      - name: Print logs on failure
+        if: failure()
+        run: |
+          cat api.log
+          cat dashboard.log
+
+      - name: Stop services
+        if: always()
+        shell: bash
+        run: |
+          if [ -f api.pid ]; then
+            kill "$(cat api.pid)" || true
+          fi
+          if [ -f dashboard.pid ]; then
+            kill "$(cat dashboard.pid)" || true
+          fi

@@ -34,13 +34,15 @@ function ApiRaw($method, $path, $body = $null, $token = $null) {
   Invoke-WebRequest @params -SkipHttpErrorCheck
 }
 
+. "$PSScriptRoot\test-helpers.ps1"
+
 Write-Host "`n=== Phase 10: Public API & Integrations E2E ===" -ForegroundColor Cyan
 
 # ---- Setup: Register + create API key ----
 $ts = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 $email = "api-test-$ts@test.com"
-try { Api 'POST' '/auth/register' @{email=$email;password='Test1234!';name='API Tester'} | Out-Null } catch {}
-$login = Api 'POST' '/auth/login' @{email=$email;password='Test1234!'}
+try { Auth-Register $base (@{email=$email;password='Test1234!';name='API Tester'} | ConvertTo-Json) | Out-Null } catch {}
+$login = Auth-Login $base (@{email=$email;password='Test1234!'} | ConvertTo-Json)
 $jwt = $login.token
 
 Write-Host "User: $email" -ForegroundColor Gray

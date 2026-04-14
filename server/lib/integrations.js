@@ -8,15 +8,28 @@
 
 const crypto = require('crypto');
 const prisma = require('./prisma');
+const { buildUserOrgScope, notFound } = require('./access');
+const { normalizeAndValidateOutboundUrl } = require('./url-security');
+
+async function normalizeIntegrationConfig(config = {}) {
+  const normalized = { ...config };
+  if (normalized.webhookUrl) {
+    normalized.webhookUrl = await normalizeAndValidateOutboundUrl(normalized.webhookUrl);
+  }
+
+  return normalized;
+}
 
 // ─── Integration Config Management ───────────────────
 
 async function saveIntegration(userId, orgId, data) {
   const existing = await prisma.integrationConfig.findFirst({
-    where: { userId, provider: data.provider }
+    where: orgId
+      ? { orgId, provider: data.provider }
+      : { userId, provider: data.provider }
   });
 
-  const configJson = JSON.stringify(data.config || {});
+  const configJson = JSON.stringify(await normalizeIntegrationConfig(data.config || {}));
 
   if (existing) {
     return prisma.integrationConfig.update({
@@ -42,7 +55,7 @@ async function saveIntegration(userId, orgId, data) {
 }
 
 async function getIntegrations(userId, orgId) {
-  const where = orgId ? { orgId } : { userId };
+  const where = buildUserOrgScope({ id: userId, orgId });
   const integrations = await prisma.integrationConfig.findMany({ where, orderBy: { provider: 'asc' } });
   return integrations.map(i => ({
     ...i,
@@ -50,8 +63,13 @@ async function getIntegrations(userId, orgId) {
   }));
 }
 
-async function deleteIntegration(id) {
-  return prisma.integrationConfig.delete({ where: { id } });
+async function deleteIntegration(id, userId, orgId) {
+  const integration = await prisma.integrationConfig.findFirst({
+    where: buildUserOrgScope({ id: userId, orgId }, { id })
+  });
+  if (!integration) throw notFound('Integration not found');
+
+  return prisma.integrationConfig.delete({ where: { id: integration.id } });
 }
 
 function safeParseConfig(configStr) {
@@ -78,6 +96,7 @@ async function sendSlackNotification(userId, orgId, payload) {
   if (!webhookUrl) return null;
 
   try {
+    const safeUrl = await normalizeAndValidateOutboundUrl(webhookUrl);
     const body = {
       channel: channel || undefined,
       text: payload.text,
@@ -89,7 +108,7 @@ async function sendSlackNotification(userId, orgId, payload) {
       ]
     };
 
-    const resp = await fetch(webhookUrl, {
+    const resp = await fetch(safeUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
@@ -117,6 +136,7 @@ async function sendTeamsNotification(userId, orgId, payload) {
   if (!webhookUrl) return null;
 
   try {
+    const safeUrl = await normalizeAndValidateOutboundUrl(webhookUrl);
     const body = {
       '@type': 'MessageCard',
       '@context': 'http://schema.org/extensions',
@@ -130,7 +150,7 @@ async function sendTeamsNotification(userId, orgId, payload) {
       }]
     };
 
-    const resp = await fetch(webhookUrl, {
+    const resp = await fetch(safeUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
@@ -281,15 +301,35 @@ async function getCustomFrameworks(userId, orgId) {
   }));
 }
 
-async function getCustomFramework(id) {
-  const f = await prisma.customFramework.findUnique({ where: { id } });
+async function getCustomFramework(id, userId, orgId) {
+  const f = await prisma.customFramework.findFirst({
+    where: {
+      id,
+      OR: [
+        { userId },
+        ...(orgId ? [{ orgId }] : []),
+        { isPublic: true }
+      ]
+    }
+  });
   if (!f) return null;
   return { ...f, clauses: JSON.parse(f.clauses || '[]') };
 }
 
-async function updateCustomFramework(id, data) {
+async function updateCustomFramework(id, userId, orgId, data) {
+  const framework = await prisma.customFramework.findFirst({
+    where: {
+      id,
+      OR: [
+        { userId },
+        ...(orgId ? [{ orgId }] : [])
+      ]
+    }
+  });
+  if (!framework) throw notFound('Framework not found');
+
   return prisma.customFramework.update({
-    where: { id },
+    where: { id: framework.id },
     data: {
       name: data.name,
       description: data.description,
@@ -299,8 +339,19 @@ async function updateCustomFramework(id, data) {
   });
 }
 
-async function deleteCustomFramework(id) {
-  return prisma.customFramework.delete({ where: { id } });
+async function deleteCustomFramework(id, userId, orgId) {
+  const framework = await prisma.customFramework.findFirst({
+    where: {
+      id,
+      OR: [
+        { userId },
+        ...(orgId ? [{ orgId }] : [])
+      ]
+    }
+  });
+  if (!framework) throw notFound('Framework not found');
+
+  return prisma.customFramework.delete({ where: { id: framework.id } });
 }
 
 // ─── Regulatory Alerts ───────────────────────────────
@@ -330,9 +381,14 @@ async function getAlerts(userId, unreadOnly = false) {
   });
 }
 
-async function markAlertRead(id) {
+async function markAlertRead(id, userId) {
+  const alert = await prisma.regulatoryAlert.findFirst({
+    where: { id, userId }
+  });
+  if (!alert) throw notFound('Alert not found');
+
   return prisma.regulatoryAlert.update({
-    where: { id },
+    where: { id: alert.id },
     data: { read: true }
   });
 }

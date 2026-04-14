@@ -1,5 +1,6 @@
 const express = require('express');
 const authMiddleware = require('../middleware/auth');
+const { requireAccessibleAudit } = require('../lib/access');
 const {
   generateBoardReport, issueCertificate, getCertificates, getCertificate,
   verifyCertificate, revokeCertificate, logEvidence, getEvidenceTrail,
@@ -13,7 +14,7 @@ const router = express.Router();
 
 router.get('/board-report/:auditId', authMiddleware, async (req, res, next) => {
   try {
-    const report = await generateBoardReport(req.params.auditId);
+    const report = await generateBoardReport(req.params.auditId, req.user);
     res.json(report);
   } catch (err) { next(err); }
 });
@@ -22,7 +23,7 @@ router.get('/board-report/:auditId', authMiddleware, async (req, res, next) => {
 
 router.post('/certificates', authMiddleware, async (req, res, next) => {
   try {
-    const cert = await issueCertificate(req.body.auditId, req.user.id, req.body);
+    const cert = await issueCertificate(req.body.auditId, req.user, req.body);
     res.status(201).json(cert);
   } catch (err) { next(err); }
 });
@@ -36,7 +37,7 @@ router.get('/certificates', authMiddleware, async (req, res, next) => {
 
 router.get('/certificates/:id', authMiddleware, async (req, res, next) => {
   try {
-    const cert = await getCertificate(req.params.id);
+    const cert = await getCertificate(req.params.id, req.user);
     if (!cert) return res.status(404).json({ error: 'Not found' });
     res.json(cert);
   } catch (err) { next(err); }
@@ -52,7 +53,7 @@ router.get('/verify/:certNumber', async (req, res, next) => {
 
 router.delete('/certificates/:id', authMiddleware, async (req, res, next) => {
   try {
-    await revokeCertificate(req.params.id);
+    await revokeCertificate(req.params.id, req.user);
     res.json({ message: 'Certificate revoked' });
   } catch (err) { next(err); }
 });
@@ -61,7 +62,7 @@ router.delete('/certificates/:id', authMiddleware, async (req, res, next) => {
 
 router.get('/evidence/:auditId', authMiddleware, async (req, res, next) => {
   try {
-    const trail = await getEvidenceTrail(req.params.auditId);
+    const trail = await getEvidenceTrail(req.params.auditId, req.user);
     res.json({ evidence: trail });
   } catch (err) { next(err); }
 });
@@ -69,6 +70,7 @@ router.get('/evidence/:auditId', authMiddleware, async (req, res, next) => {
 router.post('/evidence', authMiddleware, async (req, res, next) => {
   try {
     const { auditId, action, detail, metadata } = req.body;
+    await requireAccessibleAudit(req.user, auditId, { select: { id: true } });
     const entry = await logEvidence(auditId, action, req.user.id, req.user.name || req.user.email, detail, metadata);
     res.status(201).json(entry);
   } catch (err) { next(err); }
@@ -76,7 +78,7 @@ router.post('/evidence', authMiddleware, async (req, res, next) => {
 
 router.get('/evidence-pack/:auditId', authMiddleware, async (req, res, next) => {
   try {
-    const pack = await generateEvidencePack(req.params.auditId);
+    const pack = await generateEvidencePack(req.params.auditId, req.user);
     res.json(pack);
   } catch (err) { next(err); }
 });
@@ -110,9 +112,7 @@ router.get('/benchmarks/percentile/:clause/:score', authMiddleware, async (req, 
 router.post('/auto-remediate/:auditId', authMiddleware, async (req, res, next) => {
   try {
     const fs = require('fs');
-    const prisma = require('../lib/prisma');
-    const audit = await prisma.audit.findUnique({ where: { id: req.params.auditId } });
-    if (!audit) return res.status(404).json({ error: 'Audit not found' });
+    const audit = await requireAccessibleAudit(req.user, req.params.auditId);
 
     let text = req.body.text || '';
     if (!text && audit.contractPath && fs.existsSync(audit.contractPath)) {
@@ -120,7 +120,7 @@ router.post('/auto-remediate/:auditId', authMiddleware, async (req, res, next) =
     }
     if (!text) return res.status(400).json({ error: 'No contract text available' });
 
-    const result = await autoApplyRemediation(req.params.auditId, text);
+    const result = await autoApplyRemediation(req.params.auditId, text, req.user);
     res.json(result);
   } catch (err) { next(err); }
 });

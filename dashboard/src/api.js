@@ -1,33 +1,32 @@
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:4000/api';
 
-function getToken() {
-  return localStorage.getItem('dpa_token');
-}
-
-function setToken(token) {
-  localStorage.setItem('dpa_token', token);
-}
-
-function clearToken() {
-  localStorage.removeItem('dpa_token');
+function getCsrfToken() {
+  const match = document.cookie.match(/(?:^|;\s*)auleg_csrf=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 async function apiFetch(path, options = {}) {
-  const token = getToken();
-  const headers = { ...options.headers };
+  const { handleAuthFailure = true, ...fetchOptions } = options;
+  const headers = { ...fetchOptions.headers };
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  if (!(options.body instanceof FormData)) {
+  if (!(fetchOptions.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  // Include CSRF token for state-changing requests
+  const method = (fetchOptions.method || 'GET').toUpperCase();
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+  }
 
-  if (res.status === 401) {
-    clearToken();
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...fetchOptions,
+    headers,
+    credentials: 'include'
+  });
+
+  if (res.status === 401 && handleAuthFailure) {
     window.location.reload();
     throw new Error('Session expired');
   }
@@ -44,27 +43,31 @@ async function apiFetch(path, options = {}) {
 export async function login(email, password) {
   const data = await apiFetch('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ email, password }),
+    handleAuthFailure: false
   });
-  setToken(data.token);
   return data.user;
 }
 
 export async function register(email, password, name) {
   const data = await apiFetch('/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ email, password, name })
+    body: JSON.stringify({ email, password, name }),
+    handleAuthFailure: false
   });
-  setToken(data.token);
   return data.user;
 }
 
 export function logout() {
-  clearToken();
+  return fetch(`${API_BASE}/auth/logout`, {
+    method: 'POST',
+    credentials: 'include',
+    keepalive: true
+  }).catch(() => null);
 }
 
 export async function getMe() {
-  return apiFetch('/auth/me');
+  return apiFetch('/auth/me', { handleAuthFailure: false });
 }
 
 export async function listAudits(page = 1, limit = 20) {
@@ -85,19 +88,14 @@ export async function deleteAudit(id) {
   return apiFetch(`/audits/${id}`, { method: 'DELETE' });
 }
 
-export function isLoggedIn() {
-  return !!getToken();
-}
-
 // --- Export ---
 export function exportJsonUrl(id) {
   return `${API_BASE}/export/${id}/json`;
 }
 
 export async function exportCsv(id) {
-  const token = getToken();
   const res = await fetch(`${API_BASE}/export/${id}/csv`, {
-    headers: { Authorization: `Bearer ${token}` }
+    credentials: 'include'
   });
   if (!res.ok) throw new Error('Export failed');
   const blob = await res.blob();
@@ -105,9 +103,8 @@ export async function exportCsv(id) {
 }
 
 export async function exportJson(id) {
-  const token = getToken();
   const res = await fetch(`${API_BASE}/export/${id}/json`, {
-    headers: { Authorization: `Bearer ${token}` }
+    credentials: 'include'
   });
   if (!res.ok) throw new Error('Export failed');
   const blob = await res.blob();
@@ -816,7 +813,7 @@ export async function saveSsoConfig(data) {
 }
 
 export async function checkBetaStatus() {
-  const res = await fetch(`${API_BASE}/health`);
+  const res = await fetch(`${API_BASE}/health`, { credentials: 'include' });
   const data = await res.json();
   return data.beta === true;
 }

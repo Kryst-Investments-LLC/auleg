@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const authMiddleware = require('../middleware/auth');
 const prisma = require('../lib/prisma');
 const {
@@ -14,6 +15,7 @@ const {
 } = require('../lib/workflow');
 const { enqueueAudit } = require('../lib/audit-worker');
 const { requireQuota, incrementUsage } = require('../lib/billing');
+const { getScopedRecord, buildUserOrgScope } = require('../lib/access');
 
 const router = express.Router();
 
@@ -24,7 +26,7 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOADS_DIR),
   filename: (req, file, cb) => {
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    cb(null, `${Date.now()}-${safeName}`);
+    cb(null, `${crypto.randomUUID()}-${safeName}`);
   }
 });
 const upload = multer({
@@ -41,7 +43,7 @@ const upload = multer({
 
 router.post('/negotiations', authMiddleware, async (req, res, next) => {
   try {
-    const neg = await createNegotiation(req.user.id, req.user.orgId, req.body);
+    const neg = await createNegotiation(req.user, req.body);
     res.status(201).json(neg);
   } catch (err) { next(err); }
 });
@@ -55,7 +57,7 @@ router.get('/negotiations', authMiddleware, async (req, res, next) => {
 
 router.get('/negotiations/:id', authMiddleware, async (req, res, next) => {
   try {
-    const neg = await getNegotiation(req.params.id);
+    const neg = await getNegotiation(req.params.id, req.user);
     if (!neg) return res.status(404).json({ error: 'Not found' });
     res.json(neg);
   } catch (err) { next(err); }
@@ -63,21 +65,21 @@ router.get('/negotiations/:id', authMiddleware, async (req, res, next) => {
 
 router.post('/negotiations/:id/rounds', authMiddleware, async (req, res, next) => {
   try {
-    const round = await addNegotiationRound(req.params.id, req.body);
+    const round = await addNegotiationRound(req.params.id, req.user, req.body);
     res.status(201).json(round);
   } catch (err) { next(err); }
 });
 
 router.patch('/negotiations/:id/status', authMiddleware, async (req, res, next) => {
   try {
-    const neg = await updateNegotiationStatus(req.params.id, req.body.status);
+    const neg = await updateNegotiationStatus(req.params.id, req.user, req.body.status);
     res.json(neg);
   } catch (err) { next(err); }
 });
 
 router.patch('/negotiation-clauses/:id', authMiddleware, async (req, res, next) => {
   try {
-    const clause = await updateNegotiationClause(req.params.id, req.body);
+    const clause = await updateNegotiationClause(req.params.id, req.user, req.body);
     res.json(clause);
   } catch (err) { next(err); }
 });
@@ -90,14 +92,14 @@ router.post('/approvals', authMiddleware, async (req, res, next) => {
     if (!auditId || !steps || !steps.length) {
       return res.status(400).json({ error: 'auditId and steps required' });
     }
-    const chain = await createApprovalChain(auditId, req.user.orgId, steps);
+    const chain = await createApprovalChain(auditId, req.user, steps);
     res.status(201).json(chain);
   } catch (err) { next(err); }
 });
 
 router.get('/approvals/:auditId', authMiddleware, async (req, res, next) => {
   try {
-    const chains = await getApprovalChains(req.params.auditId);
+    const chains = await getApprovalChains(req.params.auditId, req.user);
     res.json({ chains });
   } catch (err) { next(err); }
 });
@@ -108,7 +110,7 @@ router.post('/approvals/steps/:stepId/decide', authMiddleware, async (req, res, 
     if (!['approved', 'rejected', 'skipped'].includes(decision)) {
       return res.status(400).json({ error: 'Invalid decision' });
     }
-    const result = await processApprovalStep(req.params.stepId, req.user.id, decision, comments);
+    const result = await processApprovalStep(req.params.stepId, req.user, decision, comments);
     res.json(result);
   } catch (err) { next(err); }
 });
@@ -117,7 +119,7 @@ router.post('/approvals/steps/:stepId/decide', authMiddleware, async (req, res, 
 
 router.post('/counterparty/links', authMiddleware, async (req, res, next) => {
   try {
-    const link = await createCounterpartyLink(req.user.id, req.body);
+    const link = await createCounterpartyLink(req.user, req.body);
     res.status(201).json({
       ...link,
       portalUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/portal/${link.token}`
@@ -156,13 +158,19 @@ router.post('/counterparty/portal/:token/submit', upload.single('contract'), asy
       return res.status(404).json({ error: 'Invalid or expired link' });
     }
 
+    const owner = await prisma.user.findUnique({
+      where: { id: link.userId },
+      select: { orgId: true }
+    });
+
     // Create an audit for the submitted DPA
     const audit = await prisma.audit.create({
       data: {
         contractName: `[Counterparty] ${link.companyName} - ${req.file.originalname}`,
         contractPath: req.file.path,
         status: 'processing',
-        userId: link.userId
+        userId: link.userId,
+        orgId: owner?.orgId || null
       }
     });
 
@@ -180,7 +188,7 @@ router.post('/counterparty/portal/:token/submit', upload.single('contract'), asy
 
 router.post('/vendor-assessments', authMiddleware, async (req, res, next) => {
   try {
-    const assessment = await createVendorAssessment(req.user.id, req.user.orgId, req.body.name || 'Vendor Assessment');
+    const assessment = await createVendorAssessment(req.user, req.body.name || 'Vendor Assessment');
     res.status(201).json(assessment);
   } catch (err) { next(err); }
 });
@@ -194,7 +202,7 @@ router.get('/vendor-assessments', authMiddleware, async (req, res, next) => {
 
 router.get('/vendor-assessments/:id', authMiddleware, async (req, res, next) => {
   try {
-    const assessment = await getVendorAssessment(req.params.id);
+    const assessment = await getVendorAssessment(req.params.id, req.user);
     if (!assessment) return res.status(404).json({ error: 'Not found' });
     res.json(assessment);
   } catch (err) { next(err); }
@@ -207,13 +215,13 @@ router.post('/vendor-assessments/:id/vendors', authMiddleware, upload.array('con
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    const assessment = await prisma.vendorAssessment.findUnique({ where: { id: req.params.id } });
+    const assessment = await getVendorAssessment(req.params.id, req.user);
     if (!assessment) return res.status(404).json({ error: 'Assessment not found' });
 
     const entries = [];
     for (const file of req.files) {
       const vendorName = file.originalname.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-      const entry = await addVendorToAssessment(req.params.id, vendorName, file.originalname, file.path);
+      const entry = await addVendorToAssessment(req.user, req.params.id, vendorName, file.originalname, file.path);
 
       // Create an audit and enqueue
       const audit = await prisma.audit.create({
@@ -221,7 +229,8 @@ router.post('/vendor-assessments/:id/vendors', authMiddleware, upload.array('con
           contractName: `[Vendor] ${vendorName}`,
           contractPath: file.path,
           status: 'processing',
-          userId: req.user.id
+          userId: req.user.id,
+          orgId: req.user.orgId || null
         }
       });
 
@@ -270,7 +279,8 @@ router.post('/bundles', authMiddleware, upload.array('contracts', 10), async (re
           contractName: `[Bundle] ${file.originalname}`,
           contractPath: file.path,
           status: 'processing',
-          userId: req.user.id
+          userId: req.user.id,
+          orgId: req.user.orgId || null
         }
       });
 
@@ -309,7 +319,7 @@ router.post('/bundles', authMiddleware, upload.array('contracts', 10), async (re
 router.get('/bundles', authMiddleware, async (req, res, next) => {
   try {
     const bundles = await prisma.auditBundle.findMany({
-      where: { userId: req.user.id },
+      where: buildUserOrgScope(req.user),
       include: { files: true },
       orderBy: { createdAt: 'desc' }
     });
@@ -319,8 +329,7 @@ router.get('/bundles', authMiddleware, async (req, res, next) => {
 
 router.get('/bundles/:id', authMiddleware, async (req, res, next) => {
   try {
-    const bundle = await prisma.auditBundle.findUnique({
-      where: { id: req.params.id },
+    const bundle = await getScopedRecord('auditBundle', req.user, req.params.id, {
       include: { files: { orderBy: { order: 'asc' } } }
     });
     if (!bundle) return res.status(404).json({ error: 'Not found' });

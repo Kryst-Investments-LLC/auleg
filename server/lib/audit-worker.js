@@ -299,7 +299,7 @@ async function runAuditJob(job) {
 
   // 9. Activity log + webhook + notification
   await logActivity('audit.complete', {
-    detail: `${updated.contractName} → ${updated.overallRisk}(${updated.riskScore})`,
+    detail: `${updated.contractName} -> ${updated.overallRisk}(${updated.riskScore})`,
     userId: job.userId,
     userEmail: job.userEmail
   });

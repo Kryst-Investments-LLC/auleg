@@ -33,14 +33,17 @@ router.get('/users', async (req, res, next) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
     const skip = (page - 1) * limit;
 
+    const whereClause = req.user.orgId ? { orgId: req.user.orgId } : {};
+
     const [users, total] = await Promise.all([
       prisma.user.findMany({
+        where: whereClause,
         select: { id: true, email: true, name: true, role: true, orgId: true, createdAt: true },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit
       }),
-      prisma.user.count()
+      prisma.user.count({ where: whereClause })
     ]);
 
     res.json({ users, total, page, limit, pages: Math.ceil(total / limit) });
@@ -86,13 +89,18 @@ router.patch('/users/:id/role', async (req, res, next) => {
     const user = await prisma.user.findUnique({ where: { id: req.params.id } });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
+    // Org-scoped: admin can only manage users in their own org
+    if (req.user.orgId && user.orgId !== req.user.orgId) {
+      return res.status(403).json({ error: 'Cannot manage users outside your organization' });
+    }
+
     const updated = await prisma.user.update({
       where: { id: req.params.id },
       data: { role },
       select: { id: true, email: true, name: true, role: true }
     });
 
-    await activityFromReq(req, 'user.role_change', `${user.email} → ${role}`);
+    await activityFromReq(req, 'user.role_change', `${user.email} -> ${role}`);
     res.json(updated);
   } catch (err) {
     next(err);
@@ -124,6 +132,11 @@ router.delete('/users/:id', async (req, res, next) => {
 
     const user = await prisma.user.findUnique({ where: { id: req.params.id } });
     if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Org-scoped: admin can only delete users in their own org
+    if (req.user.orgId && user.orgId !== req.user.orgId) {
+      return res.status(403).json({ error: 'Cannot delete users outside your organization' });
+    }
 
     await prisma.audit.deleteMany({ where: { userId: req.params.id } });
     await prisma.user.delete({ where: { id: req.params.id } });

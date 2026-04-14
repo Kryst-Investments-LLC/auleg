@@ -3,6 +3,10 @@ const crypto = require('crypto');
 const prisma = require('../lib/prisma');
 const authMiddleware = require('../middleware/auth');
 const { activityFromReq } = require('../lib/activity');
+const { normalizeAndValidateOutboundUrl } = require('../lib/url-security');
+const { encrypt } = require('../lib/crypto');
+
+const VALID_EVENTS = ['audit.complete', 'audit.failed'];
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -60,33 +64,32 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ error: 'url and events are required' });
     }
 
-    const validEvents = ['audit.complete', 'audit.failed'];
-    const eventList = events.split(',').map(e => e.trim());
-    const invalid = eventList.filter(e => !validEvents.includes(e));
+    const eventList = events.split(',').map(e => e.trim()).filter(Boolean);
+    if (eventList.length === 0) {
+      return res.status(400).json({ error: 'At least one webhook event is required' });
+    }
+    const invalid = eventList.filter(e => !VALID_EVENTS.includes(e));
     if (invalid.length > 0) {
-      return res.status(400).json({ error: `Invalid events: ${invalid.join(', ')}. Valid: ${validEvents.join(', ')}` });
+      return res.status(400).json({ error: `Invalid events: ${invalid.join(', ')}. Valid: ${VALID_EVENTS.join(', ')}` });
     }
 
-    let parsedUrl;
-    try { parsedUrl = new URL(url); } catch {
-      return res.status(400).json({ error: 'Invalid URL format' });
-    }
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-      return res.status(400).json({ error: 'URL must use http or https' });
-    }
+    const normalizedUrl = await normalizeAndValidateOutboundUrl(url);
 
     const secret = crypto.randomBytes(32).toString('hex');
+    const { encrypted, iv, tag } = encrypt(secret);
 
     const webhook = await prisma.webhook.create({
       data: {
-        url: parsedUrl.href,
+        url: normalizedUrl,
         events: eventList.join(','),
-        secret,
+        secretEncrypted: encrypted,
+        secretIv: iv,
+        secretTag: tag,
         userId: req.user.id
       }
     });
 
-    await activityFromReq(req, 'webhook.create', parsedUrl.href);
+    await activityFromReq(req, 'webhook.create', normalizedUrl);
     res.status(201).json({
       id: webhook.id,
       url: webhook.url,
@@ -135,12 +138,19 @@ router.patch('/:id', async (req, res, next) => {
 
     const updates = {};
     if (req.body.active !== undefined) updates.active = !!req.body.active;
-    if (req.body.events) updates.events = req.body.events;
-    if (req.body.url) {
-      try { new URL(req.body.url); } catch {
-        return res.status(400).json({ error: 'Invalid URL' });
+    if (req.body.events) {
+      const eventList = req.body.events.split(',').map(e => e.trim()).filter(Boolean);
+      if (eventList.length === 0) {
+        return res.status(400).json({ error: 'At least one webhook event is required' });
       }
-      updates.url = req.body.url;
+      const invalid = eventList.filter(e => !VALID_EVENTS.includes(e));
+      if (invalid.length > 0) {
+        return res.status(400).json({ error: `Invalid events: ${invalid.join(', ')}. Valid: ${VALID_EVENTS.join(', ')}` });
+      }
+      updates.events = eventList.join(',');
+    }
+    if (req.body.url) {
+      updates.url = await normalizeAndValidateOutboundUrl(req.body.url);
     }
 
     const updated = await prisma.webhook.update({

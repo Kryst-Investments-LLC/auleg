@@ -1,5 +1,7 @@
 const crypto = require('crypto');
 const prisma = require('./prisma');
+const { normalizeAndValidateOutboundUrl } = require('./url-security');
+const { decrypt } = require('./crypto');
 
 async function dispatchWebhook(userId, event, payload) {
   try {
@@ -11,6 +13,22 @@ async function dispatchWebhook(userId, event, payload) {
       const events = hook.events.split(',').map(e => e.trim());
       if (!events.includes(event)) continue;
 
+      let safeUrl;
+      try {
+        safeUrl = await normalizeAndValidateOutboundUrl(hook.url);
+      } catch (err) {
+        console.error(`Webhook ${hook.id} blocked:`, err.message);
+        continue;
+      }
+
+      let secret;
+      try {
+        secret = decrypt(hook.secretEncrypted, hook.secretIv, hook.secretTag);
+      } catch (err) {
+        console.error(`Webhook ${hook.id} secret decryption failed:`, err.message);
+        continue;
+      }
+
       const body = JSON.stringify({
         event,
         timestamp: new Date().toISOString(),
@@ -18,12 +36,12 @@ async function dispatchWebhook(userId, event, payload) {
       });
 
       const signature = crypto
-        .createHmac('sha256', hook.secret)
+        .createHmac('sha256', secret)
         .update(body)
         .digest('hex');
 
       // Fire-and-forget with timeout
-      fetch(hook.url, {
+      fetch(safeUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

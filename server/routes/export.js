@@ -6,6 +6,21 @@ const { activityFromReq } = require('../lib/activity');
 const router = express.Router();
 router.use(authMiddleware);
 
+// Sanitize a cell value to prevent CSV formula injection
+function csvSafe(val) {
+  if (val === null || val === undefined) return '';
+  const str = String(val);
+  // If the cell starts with a formula trigger char, prefix with a single quote
+  if (/^[=+\-@\t\r]/.test(str)) return "'" + str;
+  return str;
+}
+
+function csvCell(val) {
+  const safe = csvSafe(val);
+  // Escape double quotes and wrap in double quotes
+  return '"' + safe.replace(/"/g, '""') + '"';
+}
+
 /**
  * @swagger
  * /api/export/{id}/json:
@@ -74,7 +89,7 @@ router.get('/:id/csv', async (req, res, next) => {
     lines.push('Section,Clause,Severity,Likelihood,Regulatory Exposure,Score');
     const scores = report.risk_profile?.clause_scores || [];
     scores.forEach(c => {
-      lines.push(`Clause Scores,"${c.clause}",${c.severity},${c.likelihood},${c.regulatory_exposure},${c.score}`);
+      lines.push(`${csvCell('Clause Scores')},${csvCell(c.clause)},${csvCell(c.severity)},${csvCell(c.likelihood)},${csvCell(c.regulatory_exposure)},${csvCell(c.score)}`);
     });
 
     // Compliance matrix
@@ -83,7 +98,7 @@ router.get('/:id/csv', async (req, res, next) => {
     const matrix = report.compliance_matrix || {};
     Object.entries(matrix).forEach(([clause, refs]) => {
       const refStr = Array.isArray(refs) ? refs.join('; ') : '';
-      lines.push(`Compliance,"${clause}","${refStr}"`);
+      lines.push(`${csvCell('Compliance')},${csvCell(clause)},${csvCell(refStr)}`);
     });
 
     // Gap report
@@ -91,9 +106,9 @@ router.get('/:id/csv', async (req, res, next) => {
     lines.push('Section,Missing Clause');
     const gaps = report.gap_report || [];
     if (gaps.length === 0) {
-      lines.push('Gaps,None');
+      lines.push(`${csvCell('Gaps')},${csvCell('None')}`);
     } else {
-      gaps.forEach(g => lines.push(`Gaps,"${g}"`));
+      gaps.forEach(g => lines.push(`${csvCell('Gaps')},${csvCell(g)}`));
     }
 
     // Remediation plan
@@ -102,17 +117,17 @@ router.get('/:id/csv', async (req, res, next) => {
     const plan = report.remediation_plan || [];
     plan.forEach(r => {
       const refs = (r.references || []).join('; ');
-      lines.push(`Remediation,"${r.clause}","${r.action}","${r.severity || ''}",${r.risk_score || ''},"${refs}"`);
+      lines.push(`${csvCell('Remediation')},${csvCell(r.clause)},${csvCell(r.action)},${csvCell(r.severity || '')},${csvCell(r.risk_score || '')},${csvCell(refs)}`);
     });
 
     // Summary
     lines.push('');
     lines.push('Section,Key,Value');
-    lines.push(`Summary,Overall Risk,${report.risk_profile?.overall_risk || ''}`);
-    lines.push(`Summary,Risk Score,${report.risk_profile?.score || ''}`);
-    lines.push(`Summary,Clauses Detected,${Object.keys(report.clauses || {}).length}`);
-    lines.push(`Summary,Gaps Found,${gaps.length}`);
-    lines.push(`Summary,Generated,${report.generated || ''}`);
+    lines.push(`${csvCell('Summary')},${csvCell('Overall Risk')},${csvCell(report.risk_profile?.overall_risk || '')}`);
+    lines.push(`${csvCell('Summary')},${csvCell('Risk Score')},${csvCell(report.risk_profile?.score || '')}`);
+    lines.push(`${csvCell('Summary')},${csvCell('Clauses Detected')},${csvCell(Object.keys(report.clauses || {}).length)}`);
+    lines.push(`${csvCell('Summary')},${csvCell('Gaps Found')},${csvCell(gaps.length)}`);
+    lines.push(`${csvCell('Summary')},${csvCell('Generated')},${csvCell(report.generated || '')}`);
 
     const csv = lines.join('\n');
     const safeName = audit.contractName.replace(/[^a-zA-Z0-9._-]/g, '_');

@@ -8,18 +8,30 @@
 const crypto = require('crypto');
 const prisma = require('./prisma');
 const { notify } = require('./notifications');
+const {
+  buildUserOrgScope,
+  requireAccessibleAudit,
+  requireScopedRecord,
+  canAccessUserOrgRecord,
+  forbidden,
+  notFound
+} = require('./access');
 
 // ─── Negotiation Workflow ─────────────────────────────
 
-async function createNegotiation(userId, orgId, data) {
+async function createNegotiation(user, data) {
+  if (data.auditId) {
+    await requireAccessibleAudit(user, data.auditId, { select: { id: true } });
+  }
+
   return prisma.negotiation.create({
     data: {
       auditId: data.auditId,
       title: data.title,
       counterparty: data.counterparty,
       status: 'draft',
-      userId,
-      orgId,
+      userId: user.id,
+      orgId: user.orgId || null,
       clauses: {
         create: (data.clauses || []).map(c => ({
           clause: c,
@@ -40,16 +52,16 @@ async function getNegotiations(userId, orgId) {
   });
 }
 
-async function getNegotiation(id) {
-  return prisma.negotiation.findUnique({
-    where: { id },
+async function getNegotiation(id, user) {
+  return prisma.negotiation.findFirst({
+    where: buildUserOrgScope(user, { id }),
     include: { clauses: true, rounds: true }
   });
 }
 
-async function addNegotiationRound(negotiationId, data) {
-  const neg = await prisma.negotiation.findUnique({ where: { id: negotiationId } });
-  if (!neg) throw new Error('Negotiation not found');
+async function addNegotiationRound(negotiationId, user, data) {
+  const neg = await getNegotiation(negotiationId, user);
+  if (!neg) throw notFound('Negotiation not found');
 
   const round = await prisma.negotiationRound.create({
     data: {
@@ -73,7 +85,20 @@ async function addNegotiationRound(negotiationId, data) {
   return round;
 }
 
-async function updateNegotiationClause(id, data) {
+async function updateNegotiationClause(id, user, data) {
+  const clause = await prisma.negotiationClause.findUnique({
+    where: { id },
+    include: {
+      negotiation: {
+        select: { id: true, userId: true, orgId: true }
+      }
+    }
+  });
+
+  if (!clause || !canAccessUserOrgRecord(user, clause.negotiation)) {
+    throw notFound('Negotiation clause not found');
+  }
+
   return prisma.negotiationClause.update({
     where: { id },
     data: {
@@ -86,21 +111,28 @@ async function updateNegotiationClause(id, data) {
   });
 }
 
-async function updateNegotiationStatus(id, status) {
+async function updateNegotiationStatus(id, user, status) {
+  const negotiation = await getNegotiation(id, user);
+  if (!negotiation) {
+    throw notFound('Negotiation not found');
+  }
+
   return prisma.negotiation.update({
-    where: { id },
+    where: { id: negotiation.id },
     data: { status }
   });
 }
 
 // ─── Approval Chains ──────────────────────────────────
 
-async function createApprovalChain(auditId, orgId, steps) {
+async function createApprovalChain(auditId, user, steps) {
+  await requireAccessibleAudit(user, auditId, { select: { id: true } });
+
   return prisma.approvalChain.create({
     data: {
       auditId,
       title: `Approval for audit ${auditId}`,
-      orgId,
+      orgId: user.orgId || null,
       steps: {
         create: steps.map((s, i) => ({
           stepOrder: i + 1,
@@ -114,25 +146,38 @@ async function createApprovalChain(auditId, orgId, steps) {
   });
 }
 
-async function getApprovalChains(auditId) {
+async function getApprovalChains(auditId, user) {
+  await requireAccessibleAudit(user, auditId, { select: { id: true } });
+
   return prisma.approvalChain.findMany({
-    where: { auditId },
+    where: user.orgId
+      ? { auditId, OR: [{ orgId: user.orgId }, { orgId: null }] }
+      : { auditId, orgId: null },
     include: { steps: { orderBy: { stepOrder: 'asc' } } }
   });
 }
 
-async function processApprovalStep(stepId, userId, decision, comments) {
+async function processApprovalStep(stepId, user, decision, comments) {
   const step = await prisma.approvalStep.findUnique({
     where: { id: stepId },
     include: { chain: { include: { steps: true } } }
   });
-  if (!step) throw new Error('Step not found');
-  if (step.status !== 'pending') throw new Error('Step already processed');
+  if (!step) throw notFound('Step not found');
+
+  const assignedToUser = step.assignedTo && step.assignedTo === user.id;
+  const assignedToEmail = step.assignedEmail && step.assignedEmail.toLowerCase() === user.email.toLowerCase();
+  const sameOrgAdmin = Boolean(step.chain.orgId && user.role === 'admin' && step.chain.orgId === user.orgId);
+
+  if (!assignedToUser && !assignedToEmail && !sameOrgAdmin) {
+    throw forbidden('You are not assigned to this approval step');
+  }
+
+  if (step.status !== 'pending') throw forbidden('Step already processed');
 
   // Ensure previous steps are approved
   const prevSteps = step.chain.steps.filter(s => s.stepOrder < step.stepOrder);
   const allPrevApproved = prevSteps.every(s => s.status === 'approved' || s.status === 'skipped');
-  if (!allPrevApproved) throw new Error('Previous approval steps must be completed first');
+  if (!allPrevApproved) throw forbidden('Previous approval steps must be completed first');
 
   await prisma.approvalStep.update({
     where: { id: stepId },
@@ -162,7 +207,18 @@ async function processApprovalStep(stepId, userId, decision, comments) {
 
 // ─── Counterparty Portal ──────────────────────────────
 
-async function createCounterpartyLink(userId, data) {
+async function createCounterpartyLink(user, data) {
+  if (data.auditId) {
+    await requireAccessibleAudit(user, data.auditId, { select: { id: true } });
+  }
+
+  if (data.negotiationId) {
+    const negotiation = await getNegotiation(data.negotiationId, user);
+    if (!negotiation) {
+      throw notFound('Negotiation not found');
+    }
+  }
+
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + (data.expiryDays || 14) * 24 * 60 * 60 * 1000);
 
@@ -174,7 +230,7 @@ async function createCounterpartyLink(userId, data) {
       companyName: data.companyName,
       contactEmail: data.contactEmail,
       expiresAt,
-      userId
+      userId: user.id
     }
   });
 }
@@ -218,19 +274,21 @@ async function getCounterpartyLinks(userId) {
 
 // ─── Bulk Vendor Assessment ───────────────────────────
 
-async function createVendorAssessment(userId, orgId, name) {
+async function createVendorAssessment(user, name) {
   return prisma.vendorAssessment.create({
-    data: { name, userId, orgId }
+    data: { name, userId: user.id, orgId: user.orgId || null }
   });
 }
 
-async function addVendorToAssessment(assessmentId, vendorName, fileName, filePath) {
+async function addVendorToAssessment(user, assessmentId, vendorName, fileName, filePath) {
+  const assessment = await requireScopedRecord('vendorAssessment', user, assessmentId);
+
   const entry = await prisma.vendorEntry.create({
-    data: { assessmentId, vendorName, fileName, filePath }
+    data: { assessmentId: assessment.id, vendorName, fileName, filePath }
   });
 
   await prisma.vendorAssessment.update({
-    where: { id: assessmentId },
+    where: { id: assessment.id },
     data: { totalVendors: { increment: 1 } }
   });
 
@@ -282,9 +340,9 @@ async function getVendorAssessments(userId, orgId) {
   });
 }
 
-async function getVendorAssessment(id) {
-  return prisma.vendorAssessment.findUnique({
-    where: { id },
+async function getVendorAssessment(id, user) {
+  return prisma.vendorAssessment.findFirst({
+    where: buildUserOrgScope(user, { id }),
     include: { vendors: { orderBy: { riskScore: 'desc' } } }
   });
 }

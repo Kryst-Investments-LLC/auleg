@@ -42,6 +42,7 @@ const integrationsRoutes = require('./routes/integrations');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+const jsonParser = express.json({ limit: '10mb' });
 
 // Security
 app.use(helmet({
@@ -55,9 +56,21 @@ app.use(helmet({
   },
   crossOriginEmbedderPolicy: false  // allow swagger-ui assets
 }));
-app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:3000', credentials: true }));
+// CORS — guard against wildcard with credentials
+const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000';
+if (corsOrigin === '*') {
+  console.error('FATAL: CORS_ORIGIN="*" is not allowed with credentials. Set a specific origin.');
+  if (process.env.NODE_ENV !== 'development') process.exit(1);
+}
+app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(compression());
-app.use(express.json({ limit: '10mb' }));
+app.use((req, res, next) => {
+  if (req.path === '/api/billing/webhook') {
+    return next();
+  }
+
+  return jsonParser(req, res, next);
+});
 
 // Request ID + logging
 app.use(requestLogger);
@@ -65,27 +78,34 @@ app.use(requestLogger);
 // Input sanitization (for JSON bodies)
 app.use(sanitizeBody);
 
+// CSRF protection via double-submit cookie pattern
+const csrfProtection = require('./middleware/csrf');
+app.use(csrfProtection);
+
 // Security headers
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '0'); // Modern browsers; CSP is preferred
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   next();
 });
 
 // Rate limiting
+const apiRateLimitMax = Number.parseInt(process.env.API_RATE_LIMIT_MAX || '200', 10);
+const authRateLimitMax = Number.parseInt(process.env.AUTH_RATE_LIMIT_MAX || '20', 10);
+
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: Number.isFinite(apiRateLimitMax) ? apiRateLimitMax : 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later' }
 });
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: Number.isFinite(authRateLimitMax) ? authRateLimitMax : 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many auth attempts, please try again later' }
@@ -93,25 +113,27 @@ const authLimiter = rateLimit({
 app.use('/api/', apiLimiter);
 app.use('/api/auth', authLimiter);
 
-// Swagger
-const swaggerSpec = swaggerJsdoc({
-  definition: {
-    openapi: '3.0.0',
-    info: {
-      title: 'Auleg API',
-      version: '1.0.0',
-      description: 'REST API for the Auleg platform — www.auleg.com'
-    },
-    servers: [{ url: `http://localhost:${PORT}` }],
-    components: {
-      securitySchemes: {
-        bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }
+// Swagger — disabled in production
+if (process.env.NODE_ENV !== 'production') {
+  const swaggerSpec = swaggerJsdoc({
+    definition: {
+      openapi: '3.0.0',
+      info: {
+        title: 'Auleg API',
+        version: '1.0.0',
+        description: 'REST API for the Auleg platform — www.auleg.com'
+      },
+      servers: [{ url: `http://localhost:${PORT}` }],
+      components: {
+        securitySchemes: {
+          bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }
+        }
       }
-    }
-  },
-  apis: [path.join(__dirname, 'routes', '*.js')]
-});
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+    },
+    apis: [path.join(__dirname, 'routes', '*.js')]
+  });
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+}
 
 // Routes
 app.use('/api/health', healthRoutes);
@@ -147,7 +169,7 @@ app.use((req, res) => {
 // Structured error handler
 app.use((err, req, res, next) => {
   const status = err.status || err.statusCode || 500;
-  const isProduction = process.env.NODE_ENV === 'production';
+  const isDev = process.env.NODE_ENV === 'development';
 
   // Log full error server-side
   console.error(JSON.stringify({
@@ -157,12 +179,12 @@ app.use((err, req, res, next) => {
     path: req.originalUrl,
     status,
     message: err.message,
-    stack: isProduction ? undefined : err.stack
+    stack: isDev ? err.stack : undefined
   }));
 
-  // Don't leak internal details in production
+  // Don't leak internal details outside development
   res.status(status).json({
-    error: status >= 500 && isProduction ? 'Internal server error' : err.message || 'Internal server error',
+    error: status >= 500 && !isDev ? 'Internal server error' : err.message || 'Internal server error',
     ...(req.id ? { requestId: req.id } : {})
   });
 });

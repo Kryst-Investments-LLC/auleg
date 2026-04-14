@@ -8,11 +8,14 @@ if (!connectionString) {
   process.exit(1);
 }
 
-const adapter = new PrismaPg({ connectionString });
+const adapter = new PrismaPg({
+  connectionString,
+  client_encoding: 'UTF8'
+});
 
 const prisma = new PrismaClient({
   adapter,
-  log: process.env.NODE_ENV === 'production' ? ['error'] : ['query', 'error', 'warn'],
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
 });
 
 module.exports = prisma;

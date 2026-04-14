@@ -72,7 +72,7 @@ router.post('/', authMiddleware, async (req, res, next) => {
       }
     });
 
-    await activityFromReq(req, 'audit.share', `${audit.contractName} → ${email}`);
+    await activityFromReq(req, 'audit.share', `${audit.contractName} -> ${email}`);
 
     // Notify the recipient if they exist
     const recipient = await prisma.user.findUnique({ where: { email } });
