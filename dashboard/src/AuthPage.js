@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { login, register } from './api';
+import { login, register, forgotPassword } from './api';
 
 export default function AuthPage({ onLogin, onBack, isBeta }) {
   const [isRegister, setIsRegister] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -30,11 +31,19 @@ export default function AuthPage({ onLogin, onBack, isBeta }) {
     }
   };
 
-  const handleForgotPassword = (e) => {
+  const handleForgotPassword = async (e) => {
     e.preventDefault();
     if (!email) { setError('Enter your email address first'); return; }
     setError('');
-    setSuccess('If an account exists for that email, a reset link has been sent.');
+    setLoading(true);
+    try {
+      await forgotPassword(email);
+      setSuccess('If an account exists for that email, a reset link has been sent.');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (showForgot) {
@@ -54,7 +63,9 @@ export default function AuthPage({ onLogin, onBack, isBeta }) {
             />
             {error && <div className="auth-error">{error}</div>}
             {success && <div className="auth-success">{success}</div>}
-            <button type="submit" className="auth-button">Send Reset Link</button>
+            <button type="submit" className="auth-button" disabled={loading}>
+              {loading ? 'Sending...' : 'Send Reset Link'}
+            </button>
           </form>
           <div className="auth-toggle">
             <button onClick={() => { setShowForgot(false); setError(''); setSuccess(''); }}>
@@ -109,15 +120,30 @@ export default function AuthPage({ onLogin, onBack, isBeta }) {
             required
             className="auth-input"
           />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            minLength={8}
-            className="auth-input"
-          />
+          <div style={{ position: 'relative' }}>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              minLength={8}
+              className="auth-input"
+              style={{ paddingRight: 44 }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              style={{
+                position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 4, color: '#888'
+              }}
+              tabIndex={-1}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? '🙈' : '👁️'}
+            </button>
+          </div>
 
           {error && <div className="auth-error">{error}</div>}
 

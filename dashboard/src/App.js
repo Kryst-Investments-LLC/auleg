@@ -14,6 +14,7 @@ import LegalAgentPage from './LegalAgentPage';
 import AdvancedPage from './AdvancedPage';
 import LandingPage from './LandingPage';
 import OnboardingWizard from './OnboardingWizard';
+import ResetPasswordPage from './ResetPasswordPage';
 
 function BetaBanner() {
   return (
@@ -98,6 +99,18 @@ function App() {
       <div className="dashboard" style={{ textAlign: 'center', paddingTop: 100 }}>
         <div className="subtitle">Loading...</div>
       </div>
+    );
+  }
+
+  // Handle /reset-password?token=... URL from email
+  const urlParams = new URLSearchParams(window.location.search);
+  const resetToken = window.location.pathname === '/reset-password' ? urlParams.get('token') : null;
+  if (resetToken) {
+    return (
+      <ResetPasswordPage
+        token={resetToken}
+        onDone={() => { window.history.replaceState({}, '', '/'); window.location.reload(); }}
+      />
     );
   }
 

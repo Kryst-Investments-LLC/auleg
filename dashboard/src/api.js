@@ -58,6 +58,22 @@ export async function register(email, password, name) {
   return data.user;
 }
 
+export async function forgotPassword(email) {
+  return apiFetch('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+    handleAuthFailure: false
+  });
+}
+
+export async function resetPassword(token, password) {
+  return apiFetch('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, password }),
+    handleAuthFailure: false
+  });
+}
+
 export function logout() {
   return fetch(`${API_BASE}/auth/logout`, {
     method: 'POST',
