@@ -106,7 +106,7 @@ function renderFormattedText(text, options = {}) {
   return elements;
 }
 
-export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, onSettings, onAnalytics, onBilling, onApiExplorer, onLegal, onAdvanced }) {
+export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, onSettings, onAnalytics, onBilling, onApiExplorer, onLegal, onAdvanced, theme, onToggleTheme }) {
   const [audits, setAudits] = useState([]);
   const [selectedAudit, setSelectedAudit] = useState(null);
   const [report, setReport] = useState(null);
@@ -248,7 +248,7 @@ export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, o
   const rp = report?.risk_profile || {};
 
   return (
-    <div className="dashboard">
+    <div className="dashboard" id="main-content">
       <div className="dashboard-header">
         <div>
           <h1>Auleg</h1>
@@ -302,6 +302,17 @@ export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, o
             )}
           </div>
           <button className="dash-nav-btn logout" onClick={onLogout}>Sign Out</button>
+          {onToggleTheme && (
+            <button
+              type="button"
+              className="theme-toggle"
+              onClick={onToggleTheme}
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+            >
+              {theme === 'dark' ? '☀' : '☾'}
+            </button>
+          )}
         </div>
       </div>
 

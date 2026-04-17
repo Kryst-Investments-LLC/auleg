@@ -1,26 +1,413 @@
+/* ============================================================
+   AULEG DESIGN SYSTEM
+   Tier 1 (primitives) → Tier 2 (semantic) → Tier 3 (components)
+   ============================================================ */
+
 :root {
-  --bg-primary: #0f172a;
-  --bg-card: #1e293b;
-  --bg-card-hover: #334155;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --border: #334155;
-  --accent-blue: #3b82f6;
-  --accent-green: #22c55e;
-  --accent-yellow: #eab308;
-  --accent-orange: #f97316;
-  --accent-red: #ef4444;
-  --accent-purple: #a855f7;
+  /* ── Tier 1: Primitives ─────────────────────────────────── */
+  /* Neutral surface palette (warmer than default Tailwind slate) */
+  --color-ink-950: #0a0e1a;
+  --color-ink-900: #0c111c;
+  --color-ink-800: #161b29;
+  --color-ink-700: #232a3d;
+  --color-ink-600: #2f3a52;
+  --color-ink-500: #4a5878;
+  --color-ink-400: #6b7a9a;
+  --color-ink-300: #94a3b8;
+  --color-ink-200: #cbd5e1;
+  --color-ink-100: #e2e8f0;
+  --color-ink-50:  #f1f5f9;
+  --color-ink-25:  #f8fafc;
+  --color-ink-0:   #ffffff;
+
+  /* Brand: deep legal indigo (distinctive vs. Tailwind blue-500) */
+  --color-brand-50:  #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
+
+  --color-success-500: #22c55e;
+  --color-warn-500:    #eab308;
+  --color-danger-500:  #ef4444;
+  --color-orange-500:  #f97316;
+  --color-purple-500:  #a855f7;
+
+  /* Spacing scale (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Type scale (12 / 14 / 16 / 20 / 28 / 40) */
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 20px;
+  --font-size-xl: 28px;
+  --font-size-2xl: 40px;
+  --font-size-3xl: 56px;
+
+  --font-family-ui: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-family-display: 'Inter', 'Segoe UI', system-ui, sans-serif;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  /* Shadow (dark-tuned by default; overridden in light theme) */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45);
+
+  /* Motion */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 320ms;
+  --easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Tier 2: Semantic (DARK theme defaults) ─────────────── */
+  --surface-0: var(--color-ink-950);
+  --surface-1: var(--color-ink-900);
+  --surface-2: var(--color-ink-800);
+  --surface-3: var(--color-ink-700);
+  --surface-hover: var(--color-ink-700);
+
+  --text-default: var(--color-ink-50);
+  --text-muted:   var(--color-ink-300);
+  --text-strong:  var(--color-ink-0);
+  --text-on-brand: var(--color-ink-0);
+
+  --border-default: var(--color-ink-700);
+  --border-subtle:  var(--color-ink-800);
+  --border-strong:  var(--color-ink-600);
+
+  --focus-ring: var(--color-brand-400);
+
+  /* Severity tokens (semantic — work in both themes) */
+  --severity-critical-bg: rgba(239, 68, 68, 0.18);
+  --severity-critical-fg: #fca5a5;
+  --severity-high-bg:     rgba(249, 115, 22, 0.18);
+  --severity-high-fg:     #fdba74;
+  --severity-medium-bg:   rgba(99, 102, 241, 0.18);
+  --severity-medium-fg:   #a5b4fc;
+  --severity-low-bg:      rgba(34, 197, 94, 0.18);
+  --severity-low-fg:      #86efac;
+
+  /* ── Tier 3: Component aliases ──────────────────────────── */
+  --card-bg: var(--surface-1);
+  --card-border: var(--border-default);
+  --card-padding: var(--space-6);
+  --card-radius: var(--radius-lg);
+
+  --button-primary-bg: var(--color-brand-600);
+  --button-primary-bg-hover: var(--color-brand-700);
+  --button-primary-fg: var(--text-on-brand);
+
+  /* ── Legacy aliases (preserve every existing rule below) ── */
+  --bg-primary: var(--surface-0);
+  --bg-card: var(--surface-1);
+  --bg-card-hover: var(--surface-hover);
+  --text-primary: var(--text-default);
+  --text-secondary: var(--text-muted);
+  --border: var(--border-default);
+  --accent-blue: var(--color-brand-500);
+  --accent-green: var(--color-success-500);
+  --accent-yellow: var(--color-warn-500);
+  --accent-orange: var(--color-orange-500);
+  --accent-red: var(--color-danger-500);
+  --accent-purple: var(--color-purple-500);
 }
 
+/* ── Light theme override ────────────────────────────────── */
+[data-theme='light'] {
+  --surface-0: var(--color-ink-25);
+  --surface-1: var(--color-ink-0);
+  --surface-2: var(--color-ink-50);
+  --surface-3: var(--color-ink-100);
+  --surface-hover: var(--color-ink-100);
+
+  --text-default: var(--color-ink-900);
+  --text-muted:   var(--color-ink-500);
+  --text-strong:  var(--color-ink-950);
+
+  --border-default: var(--color-ink-100);
+  --border-subtle:  var(--color-ink-50);
+  --border-strong:  var(--color-ink-200);
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
+
+  --severity-critical-bg: #fee2e2;
+  --severity-critical-fg: #b91c1c;
+  --severity-high-bg:     #fef3c7;
+  --severity-high-fg:     #b45309;
+  --severity-medium-bg:   #e0e7ff;
+  --severity-medium-fg:   #4338ca;
+  --severity-low-bg:      #dcfce7;
+  --severity-low-fg:      #15803d;
+}
+
+/* Auto light mode when user prefers it AND has not chosen */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --surface-0: var(--color-ink-25);
+    --surface-1: var(--color-ink-0);
+    --surface-2: var(--color-ink-50);
+    --surface-3: var(--color-ink-100);
+    --surface-hover: var(--color-ink-100);
+    --text-default: var(--color-ink-900);
+    --text-muted:   var(--color-ink-500);
+    --text-strong:  var(--color-ink-950);
+    --border-default: var(--color-ink-100);
+    --border-subtle:  var(--color-ink-50);
+    --border-strong:  var(--color-ink-200);
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+    --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+    --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
+  }
+}
+
+/* ============================================================
+   GLOBAL RESET + A11Y
+   ============================================================ */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-family-ui);
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color var(--motion-base) var(--easing-standard),
+              color var(--motion-base) var(--easing-standard);
 }
+
+/* WCAG 2.4.7 — visible focus on all interactive elements */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+:focus:not(:focus-visible) { outline: none; }
+
+/* Skip-to-main-content link (visually hidden until focused) */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--color-brand-600);
+  color: #fff;
+  padding: 12px 16px;
+  z-index: 10000;
+  border-radius: 0 0 6px 0;
+  text-decoration: none;
+  font-weight: 600;
+}
+.skip-link:focus { left: 0; }
+
+/* WCAG 2.3.3 — respect reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Visually hidden but available to screen readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ============================================================
+   BETA BANNER (extracted from inline styles)
+   ============================================================ */
+.beta-banner {
+  background: linear-gradient(90deg, var(--color-brand-500), var(--color-purple-500));
+  color: #fff;
+  text-align: center;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  position: sticky;
+  top: 0;
+  z-index: 9999;
+}
+.beta-banner__landing {
+  position: static;
+  padding: 10px var(--space-4);
+}
+.beta-banner__icon {
+  display: inline-block;
+  margin-right: 6px;
+}
+.beta-pill {
+  display: inline-block;
+  background: var(--color-brand-500);
+  color: #fff;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  font-weight: 700;
+  vertical-align: super;
+  letter-spacing: 0.5px;
+}
+
+/* Theme toggle button */
+.theme-toggle {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-default);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  font-size: 16px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+  transition: background-color var(--motion-fast) var(--easing-standard),
+              border-color var(--motion-fast) var(--easing-standard),
+              transform var(--motion-fast) var(--easing-standard);
+}
+.theme-toggle:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  transform: rotate(15deg);
+}
+
+/* ============================================================
+   SKELETON LOADERS
+   ============================================================ */
+@keyframes skeleton-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--surface-3) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s infinite linear;
+  border-radius: var(--radius-sm);
+  display: block;
+}
+.skeleton--text { height: 14px; margin: 6px 0; }
+.skeleton--title { height: 24px; width: 40%; margin-bottom: 12px; }
+.skeleton--block { height: 80px; }
+.skeleton--card {
+  height: 160px;
+  border-radius: var(--card-radius);
+  margin-bottom: var(--space-4);
+}
+
+/* ============================================================
+   BUTTON LOADING / DISABLED STATES
+   ============================================================ */
+.btn-loading {
+  position: relative;
+  pointer-events: none;
+  color: transparent !important;
+}
+.btn-loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin 0.7s linear infinite;
+  color: var(--text-on-brand);
+  opacity: 1;
+}
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+button:disabled,
+button[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ============================================================
+   CARD HOVER LIFT (gives the dashboard "alive" feel)
+   ============================================================ */
+.card {
+  transition:
+    border-color var(--motion-base) var(--easing-standard),
+    transform var(--motion-base) var(--easing-standard),
+    box-shadow var(--motion-base) var(--easing-standard);
+}
+.card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+.card.card--interactive:hover {
+  transform: translateY(-2px);
+  cursor: pointer;
+}
+
+/* ============================================================
+   PRINT STYLESHEET (compliance reports get printed)
+   ============================================================ */
+@media print {
+  :root {
+    --surface-0: #ffffff;
+    --surface-1: #ffffff;
+    --surface-2: #f8fafc;
+    --text-default: #0f172a;
+    --text-muted: #475569;
+    --border-default: #cbd5e1;
+  }
+  body { background: #fff !important; color: #000 !important; }
+  .landing-nav,
+  .nav-tabs,
+  .beta-banner,
+  .skip-link,
+  button,
+  .upload-hint { display: none !important; }
+  .card,
+  .landing-feature-card,
+  .remediation-card { break-inside: avoid; box-shadow: none !important; border: 1px solid #cbd5e1 !important; }
+  a { text-decoration: underline; color: #1e3a8a; }
+}
+
+
 
 .dashboard {
   max-width: 1400px;
@@ -78,15 +465,33 @@ body {
   gap: 16px;
 }
 
+.gauge-svg-wrap {
+  position: relative;
+  width: 180px;
+  height: 180px;
+}
+
+.gauge-svg-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
 .gauge-score {
-  font-size: 72px;
+  font-size: 56px;
   font-weight: 800;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .gauge-label {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-secondary);
+  margin-top: 4px;
 }
 
 .risk-badge {
@@ -709,7 +1114,8 @@ body {
 }
 
 .landing-feature-icon {
-  font-size: 28px;
+  display: block;
+  color: var(--color-brand-400);
   margin-bottom: 14px;
 }
 
@@ -1304,10 +1710,10 @@ body {
   font-size: 11px;
   font-weight: 700;
 }
-.legal-severity.critical { background: #fee2e2; color: #dc2626; }
-.legal-severity.high { background: #fef3c7; color: #d97706; }
-.legal-severity.medium { background: #e0e7ff; color: #4f46e5; }
-.legal-severity.low { background: #dcfce7; color: #16a34a; }
+.legal-severity.critical { background: var(--severity-critical-bg); color: var(--severity-critical-fg); }
+.legal-severity.high { background: var(--severity-high-bg); color: var(--severity-high-fg); }
+.legal-severity.medium { background: var(--severity-medium-bg); color: var(--severity-medium-fg); }
+.legal-severity.low { background: var(--severity-low-bg); color: var(--severity-low-fg); }
 .legal-enf-authority, .legal-guid-authority {
   font-weight: 600;
   font-size: 13px;

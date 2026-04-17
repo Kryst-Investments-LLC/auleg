@@ -45,6 +45,9 @@ const ssoRoutes = require('./routes/sso');
 const auditLogRoutes = require('./routes/audit-logs');
 const tosRoutes = require('./routes/terms');
 const dataResidencyRoutes = require('./routes/data-residency');
+const vexRoutes = require('./routes/vex');
+const epssRoutes = require('./routes/epss');
+const licenseRoutes = require('./routes/licenses');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -172,6 +175,9 @@ app.use('/api/sso', ssoRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/terms', tosRoutes);
 app.use('/api/data-residency', dataResidencyRoutes);
+app.use('/api/vex', vexRoutes);
+app.use('/api/epss', epssRoutes);
+app.use('/api/licenses', licenseRoutes);
 app.use('/api/v1', publicApiV1);
 
 // Prometheus metrics endpoint (internal, not rate-limited)
@@ -212,7 +218,8 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
+// Start server (skip when imported for testing)
+if (require.main === module) {
 const server = app.listen(PORT, async () => {
   logger.info({ port: PORT, env: process.env.NODE_ENV }, 'Auleg API running');
   logger.info({ url: `http://localhost:${PORT}/api/docs` }, 'API docs');
@@ -276,3 +283,6 @@ process.on('uncaughtException', (err) => {
   console.error(JSON.stringify({ type: 'uncaughtException', message: err.message, stack: err.stack }));
   gracefulShutdown('uncaughtException');
 });
+} // end require.main guard
+
+module.exports = app;

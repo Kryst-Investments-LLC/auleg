@@ -1,0 +1,27 @@
+DATA PROCESSING AGREEMENT
+
+This Data Processing Agreement ("DPA") is entered into between the Controller and the Processor.
+
+1. BREACH NOTIFICATION
+The Processor shall notify the Controller of any personal data breach within 72 hours of becoming aware of such breach. The notification shall include the nature of the breach, categories of data subjects affected, and recommended mitigation measures.
+
+2. DATA DELETION
+Upon termination of the agreement, the Processor shall delete or return all personal data processed on behalf of the Controller within 30 days. The Processor shall certify the deletion in writing.
+
+3. AUDIT RIGHTS
+The Controller retains the right to audit the Processor's data processing activities annually. The Processor shall provide reasonable access to its premises, systems, and records for the purpose of such audits.
+
+4. SUBPROCESSOR CONTROLS
+The Processor shall not engage any subprocessor without prior written authorization from the Controller. The Processor shall impose equivalent data protection obligations on all subprocessors.
+
+5. SECURITY MEASURES
+The Processor shall implement appropriate technical and organizational measures to ensure a level of security appropriate to the risk, including encryption of personal data, regular testing of security measures, and access controls.
+
+6. DATA SUBJECT RIGHTS
+The Processor shall assist the Controller in fulfilling data subject requests including access, rectification, erasure, and data portability within the timeframes required by applicable law.
+
+7. CROSS-BORDER TRANSFERS
+Any transfer of personal data to a third country shall be subject to appropriate safeguards as required by the GDPR, including Standard Contractual Clauses or approved certification mechanisms.
+
+8. LIABILITY AND INDEMNIFICATION
+Each party shall be liable for damages caused by processing that infringes this Agreement or applicable data protection law. The Processor shall indemnify the Controller against all claims arising from the Processor's breach of this DPA.

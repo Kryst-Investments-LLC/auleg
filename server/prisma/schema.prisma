@@ -628,3 +628,19 @@ model AuditEvidence {
   metadata     String?  // JSON: {clause, oldScore, newScore, etc.}
   createdAt    DateTime @default(now())
 }
+
+// ─── Third-Party License Management ───────────────────
+
+model License {
+  id           String   @id @default(uuid())
+  userId       String
+  orgId        String?
+  packageName  String
+  version      String?
+  spdxId       String   // e.g. MIT, GPL-3.0-only, Apache-2.0
+  status       String   @default("review") // approved, blocked, review
+  source       String?  // npm, pypi, maven, manual
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

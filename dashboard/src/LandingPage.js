@@ -1,35 +1,24 @@
 import React from 'react';
+import { Search, BarChart3, Map, AlertTriangle, Wrench, Bot } from 'lucide-react';
 
 export default function LandingPage({ onGetStarted, onSignIn, isBeta }) {
   return (
     <div className="landing">
       {/* Beta Banner */}
       {isBeta && (
-        <div style={{
-          background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
-          color: '#fff',
-          textAlign: 'center',
-          padding: '10px 16px',
-          fontSize: 14,
-          fontWeight: 600
-        }}>
-          � PRIVATE BETA — This platform is currently in private beta testing. Public access coming soon.
+        <div className="beta-banner beta-banner__landing" role="status">
+          <span className="beta-banner__icon" aria-hidden="true">🔒</span>
+          PRIVATE BETA — This platform is currently in private beta testing. Public access coming soon.
         </div>
       )}
 
       {/* Nav */}
       <nav className="landing-nav">
         <div className="landing-nav-inner">
-          <div className="landing-logo">Auleg {isBeta && <span style={{
-            background: '#6366f1',
-            color: '#fff',
-            fontSize: 10,
-            padding: '2px 6px',
-            borderRadius: 4,
-            marginLeft: 6,
-            fontWeight: 700,
-            verticalAlign: 'super'
-          }}>BETA</span>}</div>
+          <div className="landing-logo">
+            Auleg
+            {isBeta && <span className="beta-pill" aria-label="Beta release">BETA</span>}
+          </div>
           <div className="landing-nav-links">
             <a href="#features">Features</a>
             <a href="#how-it-works">How it works</a>
@@ -70,32 +59,32 @@ export default function LandingPage({ onGetStarted, onSignIn, isBeta }) {
         <p className="landing-section-sub">From clause detection to remediation — one platform handles it all.</p>
         <div className="landing-features-grid">
           <div className="landing-feature-card">
-            <div className="landing-feature-icon">🔍</div>
+            <Search className="landing-feature-icon" size={32} strokeWidth={1.75} aria-hidden="true" />
             <h3>Clause Detection</h3>
             <p>Automatically identifies data processing purpose, subprocessor controls, breach notification, and more using pattern matching and NLP.</p>
           </div>
           <div className="landing-feature-card">
-            <div className="landing-feature-icon">📊</div>
+            <BarChart3 className="landing-feature-icon" size={32} strokeWidth={1.75} aria-hidden="true" />
             <h3>Risk Scoring</h3>
             <p>Weighted risk scores across severity, likelihood, and regulatory exposure. Visual gauges and heatmaps show exactly where you stand.</p>
           </div>
           <div className="landing-feature-card">
-            <div className="landing-feature-icon">🗺️</div>
+            <Map className="landing-feature-icon" size={32} strokeWidth={1.75} aria-hidden="true" />
             <h3>Framework Mapping</h3>
             <p>Maps each clause to GDPR articles, CCPA sections, ISO 27701 controls, and SOC 2 criteria in a compliance matrix.</p>
           </div>
           <div className="landing-feature-card">
-            <div className="landing-feature-icon">⚠️</div>
+            <AlertTriangle className="landing-feature-icon" size={32} strokeWidth={1.75} aria-hidden="true" />
             <h3>Gap Analysis</h3>
             <p>Identifies missing required clauses and highlights high-risk areas that need immediate attention.</p>
           </div>
           <div className="landing-feature-card">
-            <div className="landing-feature-icon">🛠️</div>
+            <Wrench className="landing-feature-icon" size={32} strokeWidth={1.75} aria-hidden="true" />
             <h3>Remediation Plans</h3>
             <p>Generates suggested contract language with legal references for every gap and high-risk clause found.</p>
           </div>
           <div className="landing-feature-card">
-            <div className="landing-feature-icon">🤖</div>
+            <Bot className="landing-feature-icon" size={32} strokeWidth={1.75} aria-hidden="true" />
             <h3>AI Insights</h3>
             <p>Executive summaries, clause analysis, natural language search, and risk explanations powered by AI.</p>
           </div>

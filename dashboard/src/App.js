@@ -18,20 +18,45 @@ import ResetPasswordPage from './ResetPasswordPage';
 
 function BetaBanner() {
   return (
-    <div style={{
-      background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
-      color: '#fff',
-      textAlign: 'center',
-      padding: '8px 16px',
-      fontSize: 13,
-      fontWeight: 600,
-      letterSpacing: '0.5px',
-      position: 'sticky',
-      top: 0,
-      zIndex: 9999
-    }}>
-      � PRIVATE BETA — Platform is in testing mode. Registration is closed.
+    <div className="beta-banner" role="status">
+      <span className="beta-banner__icon" aria-hidden="true">🔒</span>
+      PRIVATE BETA — Platform is in testing mode. Registration is closed.
     </div>
+  );
+}
+
+/**
+ * Theme management — reads/writes localStorage, applies data-theme on <html>.
+ * Defaults to OS preference; user choice always wins.
+ */
+const THEME_STORAGE_KEY = 'auleg_theme';
+function getInitialTheme() {
+  try {
+    const stored = localStorage.getItem(THEME_STORAGE_KEY);
+    if (stored === 'light' || stored === 'dark') return stored;
+  } catch {}
+  // Fall back to OS preference
+  if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: light)').matches) {
+    return 'light';
+  }
+  return 'dark';
+}
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+}
+
+export function ThemeToggle({ theme, onToggle }) {
+  const next = theme === 'dark' ? 'light' : 'dark';
+  return (
+    <button
+      type="button"
+      className="theme-toggle"
+      onClick={onToggle}
+      aria-label={`Switch to ${next} theme`}
+      title={`Switch to ${next} theme`}
+    >
+      {theme === 'dark' ? '☀' : '☾'}
+    </button>
   );
 }
 
@@ -42,6 +67,15 @@ function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [pendingTerms, setPendingTerms] = useState(null);
   const [page, setPage] = useState('audits');
+  const [theme, setTheme] = useState(getInitialTheme);
+
+  // Apply + persist theme whenever it changes
+  useEffect(() => {
+    applyTheme(theme);
+    try { localStorage.setItem(THEME_STORAGE_KEY, theme); } catch {}
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => (t === 'dark' ? 'light' : 'dark'));
 
   useEffect(() => {
     const init = async () => {
@@ -202,6 +236,7 @@ function App() {
 
   return (
     <>
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       {isBeta && <BetaBanner />}
       <AuditPage
         user={user}
@@ -215,6 +250,8 @@ function App() {
         onApiExplorer={() => setPage('api-explorer')}
         onLegal={() => setPage('legal')}
         onAdvanced={() => setPage('advanced')}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
     </>
   );

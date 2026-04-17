@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
@@ -19,14 +19,85 @@ function formatClauseName(key) {
   return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-/* --- Risk Gauge --- */
+/* --- Risk Gauge: SVG radial 270° arc with count-up animation --- */
 export function RiskGauge({ score, riskLevel }) {
+  const target = Math.max(0, Math.min(100, Number(score) || 0));
+  const [display, setDisplay] = useState(0);
+  const rafRef = useRef(null);
+
+  useEffect(() => {
+    // Honour user motion preference — show final value instantly
+    const reduceMotion = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) {
+      setDisplay(target);
+      return undefined;
+    }
+
+    const start = performance.now();
+    const duration = 800;
+    const ease = (t) => 1 - Math.pow(1 - t, 3); // easeOutCubic
+
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      setDisplay(Math.round(target * ease(t)));
+      if (t < 1) rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [target]);
+
+  // Geometry — 270° arc from -135° to +135°
+  const size = 180;
+  const stroke = 14;
+  const radius = (size - stroke) / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const arcLength = 2 * Math.PI * radius * (270 / 360);
+  const dashOffset = arcLength * (1 - display / 100);
+  const color = getGaugeColor(riskLevel);
+
   return (
     <div className="gauge-container">
-      <div className="gauge-score" style={{ color: getGaugeColor(riskLevel) }}>
-        {score}
+      <div
+        className="gauge-svg-wrap"
+        role="img"
+        aria-label={`Risk score: ${target} out of 100, ${riskLevel} risk`}
+      >
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+          {/* Background track */}
+          <circle
+            cx={cx}
+            cy={cy}
+            r={radius}
+            fill="none"
+            stroke="var(--border-default)"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={`${arcLength} ${2 * Math.PI * radius}`}
+            transform={`rotate(135 ${cx} ${cy})`}
+          />
+          {/* Progress arc */}
+          <circle
+            cx={cx}
+            cy={cy}
+            r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={`${arcLength} ${2 * Math.PI * radius}`}
+            strokeDashoffset={dashOffset}
+            transform={`rotate(135 ${cx} ${cy})`}
+            style={{ transition: 'stroke 200ms ease' }}
+          />
+        </svg>
+        <div className="gauge-svg-center">
+          <div className="gauge-score" style={{ color }}>{display}</div>
+          <div className="gauge-label">out of 100</div>
+        </div>
       </div>
-      <div className="gauge-label">out of 100</div>
       <span className={`risk-badge ${riskLevel}`}>{riskLevel} Risk</span>
     </div>
   );

@@ -10,6 +10,7 @@ const { activityFromReq } = require('../lib/activity');
 const { enqueueAudit, getQueueStatus } = require('../lib/audit-worker');
 const { requireQuota, incrementUsage } = require('../lib/billing');
 const { buildUserOrgScope } = require('../lib/access');
+const vex = require('../lib/vex');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -322,6 +323,9 @@ router.delete('/:id', async (req, res, next) => {
     if (audit.contractPath && fs.existsSync(audit.contractPath)) {
       fs.unlinkSync(audit.contractPath);
     }
+
+    // Clean up VEX statements (filesystem) — fire-and-forget, errors logged elsewhere
+    await vex.deleteStatements(audit.id).catch(() => {});
 
     await prisma.audit.delete({ where: { id: audit.id } });
     await activityFromReq(req, 'audit.delete', audit.contractName);
