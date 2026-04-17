@@ -23,9 +23,9 @@ const { requireRole } = require('../middleware/rbac');
 let passport, SamlStrategy;
 try {
   passport = require('passport');
-  SamlStrategy = require('passport-saml').Strategy;
+  SamlStrategy = require('@node-saml/passport-saml').Strategy;
 } catch (e) {
-  logger.warn('passport-saml not available — SAML SSO disabled');
+  logger.warn('@node-saml/passport-saml not available — SAML SSO disabled');
 }
 
 // ─── OIDC ──────────────────────────────────────────────
@@ -172,7 +172,7 @@ router.get('/saml/login/:orgId', async (req, res) => {
   const strategy = new SamlStrategy({
     entryPoint: config.entryPoint,
     issuer: config.issuer,
-    cert: config.cert,
+    idpCert: config.cert,
     callbackUrl,
     identifierFormat: null
   }, (profile, done) => done(null, profile));
@@ -213,7 +213,7 @@ router.post('/saml/callback', express.urlencoded({ extended: false }), async (re
   const strategy = new SamlStrategy({
     entryPoint: config.entryPoint,
     issuer: config.issuer,
-    cert: config.cert,
+    idpCert: config.cert,
     callbackUrl,
     identifierFormat: null
   }, (profile, done) => done(null, profile));

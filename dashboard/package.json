@@ -29,5 +29,31 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "overrides": {
+    "nth-check": "^2.1.1",
+    "postcss": "^8.4.31",
+    "serialize-javascript": "^7.0.5",
+    "webpack-dev-server": "^5.2.1",
+    "@tootallnate/once": "^3.0.1",
+    "underscore": "^1.13.7",
+    "resolve-url-loader": "^5.0.0",
+    "@svgr/webpack": {
+      "nth-check": "^2.1.1"
+    },
+    "css-minimizer-webpack-plugin": {
+      "serialize-javascript": "^7.0.5"
+    },
+    "workbox-webpack-plugin": {
+      "workbox-build": {
+        "rollup-plugin-terser": {
+          "serialize-javascript": "^7.0.5"
+        }
+      }
+    },
+    "rollup-plugin-terser": "npm:@rollup/plugin-terser@^1.0.0",
+    "http-proxy-agent": {
+      "@tootallnate/once": "^3.0.1"
+    }
   }
 }
