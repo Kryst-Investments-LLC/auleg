@@ -8,6 +8,7 @@ import {
   RemediationPlan,
   LoadError
 } from './components';
+import sampleReport from './sampleReport';
 
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -234,6 +235,22 @@ export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, o
     }
   };
 
+  // First-run: let new users preview the product on a sample report (no upload).
+  const viewSampleReport = () => {
+    setSelectedAudit({
+      id: 'sample',
+      contractName: 'Sample DPA — Acme Corp (demo)',
+      status: 'complete',
+      overallRisk: sampleReport.risk_profile?.overall_risk,
+      riskScore: sampleReport.risk_profile?.score,
+      createdAt: new Date().toISOString(),
+      tags: ''
+    });
+    setReport(sampleReport);
+    setAuditTags([]);
+    setView('report');
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this audit?')) return;
     try {
@@ -386,6 +403,9 @@ export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, o
                 Upload Your First DPA
                 <input type="file" accept=".txt,.pdf,.docx" onChange={handleUpload} disabled={uploading} hidden />
               </label>
+              <button className="action-btn" style={{ marginTop: 12 }} onClick={viewSampleReport}>
+                Or view a sample report
+              </button>
             </div>
           ) : (
             <table className="scores-table">
