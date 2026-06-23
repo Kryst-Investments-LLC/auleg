@@ -50,7 +50,7 @@ cp .env.example server/.env
 cd server
 npm install
 npx prisma generate
-npx prisma db push
+npx prisma migrate deploy   # applies tracked migrations (same as production)
 npm run dev          # http://localhost:4000
 
 # Dashboard (separate terminal)

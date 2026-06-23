@@ -83,6 +83,54 @@ jobs:
         working-directory: server
         run: npx jest --config jest.integration.config.js --forceExit --runInBand
 
+  migrations:
+    name: Migration drift check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: auleg_migtest
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgresql://postgres@localhost:5432/auleg_migtest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: server
+        run: npx prisma generate
+
+      - name: Apply migrations (must succeed cleanly)
+        working-directory: server
+        run: npx prisma migrate deploy
+
+      - name: Fail if migrations drift from schema.prisma
+        working-directory: server
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+
   e2e:
     name: Playwright E2E (pre-PR gate)
     # Heavier full-stack gate — only on PRs targeting main.
