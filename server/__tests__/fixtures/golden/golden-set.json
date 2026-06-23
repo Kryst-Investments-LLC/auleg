@@ -1,0 +1,94 @@
+{
+  "description": "Golden evaluation set for the DPA audit engine. Ground-truth labels are independent of what the current engine can detect — clauses the engine has no pattern for (e.g. cross_border_transfer, liability, data_retention) are deliberately included so the harness measures the true recall gap that the LLM-primary rewrite must close.",
+  "clauseUniverse": [
+    "data_processing_purpose",
+    "breach_notification",
+    "subprocessor_controls",
+    "data_subject_rights",
+    "security_measures",
+    "audit_rights",
+    "data_retention",
+    "cross_border_transfer",
+    "liability",
+    "termination"
+  ],
+  "requiredClauses": [
+    "data_processing_purpose",
+    "subprocessor_controls",
+    "breach_notification",
+    "data_subject_rights",
+    "security_measures",
+    "audit_rights"
+  ],
+  "cases": [
+    {
+      "id": "comprehensive-dpa",
+      "name": "Comprehensive DPA (no explicit purpose clause)",
+      "expected": {
+        "clausesPresent": [
+          "breach_notification",
+          "data_retention",
+          "audit_rights",
+          "subprocessor_controls",
+          "security_measures",
+          "data_subject_rights",
+          "cross_border_transfer",
+          "liability"
+        ],
+        "requiredGaps": ["data_processing_purpose"],
+        "riskBand": ["Moderate", "High"]
+      },
+      "text": "DATA PROCESSING AGREEMENT\n\nThis Data Processing Agreement (\"DPA\") is entered into between the Controller and the Processor.\n\n1. BREACH NOTIFICATION\nThe Processor shall notify the Controller of any personal data breach within 72 hours of becoming aware of such breach. The notification shall include the nature of the breach, categories of data subjects affected, and recommended mitigation measures.\n\n2. DATA DELETION\nUpon termination of the agreement, the Processor shall delete or return all personal data processed on behalf of the Controller within 30 days. The Processor shall certify the deletion in writing.\n\n3. AUDIT RIGHTS\nThe Controller retains the right to audit the Processor's data processing activities annually. The Processor shall provide reasonable access to its premises, systems, and records for the purpose of such audits.\n\n4. SUBPROCESSOR CONTROLS\nThe Processor shall not engage any subprocessor without prior written authorization from the Controller. The Processor shall impose equivalent data protection obligations on all subprocessors.\n\n5. SECURITY MEASURES\nThe Processor shall implement appropriate technical and organizational measures to ensure a level of security appropriate to the risk, including encryption of personal data, regular testing of security measures, and access controls.\n\n6. DATA SUBJECT RIGHTS\nThe Processor shall assist the Controller in fulfilling data subject requests including access, rectification, erasure, and data portability within the timeframes required by applicable law.\n\n7. CROSS-BORDER TRANSFERS\nAny transfer of personal data to a third country shall be subject to appropriate safeguards as required by the GDPR, including Standard Contractual Clauses or approved certification mechanisms.\n\n8. LIABILITY AND INDEMNIFICATION\nEach party shall be liable for damages caused by processing that infringes this Agreement or applicable data protection law. The Processor shall indemnify the Controller against all claims arising from the Processor's breach of this DPA."
+    },
+    {
+      "id": "strong-dpa",
+      "name": "Strong DPA with explicit purpose clause",
+      "expected": {
+        "clausesPresent": [
+          "data_processing_purpose",
+          "breach_notification",
+          "subprocessor_controls",
+          "data_subject_rights",
+          "security_measures",
+          "audit_rights"
+        ],
+        "requiredGaps": [],
+        "riskBand": ["Moderate", "High"]
+      },
+      "text": "DATA PROCESSING AGREEMENT\n\n1. PURPOSE OF PROCESSING\nThe Processor shall process personal data solely for the purpose of providing the contracted services described in the main agreement, and for no other purpose. The processing purpose, categories of data, and categories of data subjects are defined in Schedule A.\n\n2. BREACH NOTIFICATION\nThe Processor shall notify the Controller of any personal data breach without undue delay and within 72 hours, including the nature of the breach and affected data subjects.\n\n3. SUBPROCESSOR CONTROLS\nThe Processor shall not engage any sub-processor without prior written authorization from the Controller and shall flow down equivalent obligations.\n\n4. DATA SUBJECT RIGHTS\nThe Processor shall assist the Controller in responding to data subject rights requests including access, rectification, erasure, and portability.\n\n5. SECURITY MEASURES\nThe Processor shall maintain appropriate technical and organizational measures including encryption, access control, and logging of all access to personal data.\n\n6. AUDIT RIGHTS\nThe Controller shall have the right to audit and conduct inspections of the Processor's processing activities upon reasonable notice."
+    },
+    {
+      "id": "weak-dpa",
+      "name": "Weak DPA — only breach + security",
+      "expected": {
+        "clausesPresent": ["breach_notification", "security_measures"],
+        "requiredGaps": [
+          "data_processing_purpose",
+          "subprocessor_controls",
+          "data_subject_rights",
+          "audit_rights"
+        ],
+        "riskBand": ["High", "Critical"]
+      },
+      "text": "SERVICE ADDENDUM\n\nThis addendum covers data handling between the parties.\n\n1. BREACH NOTIFICATION\nThe Processor shall notify the Controller of any data breach within a reasonable period after becoming aware of the incident, describing the nature of the breach.\n\n2. SECURITY\nThe Processor shall apply technical and organizational measures including encryption and access control to protect personal data against unauthorized access."
+    },
+    {
+      "id": "irrelevant-doc",
+      "name": "Irrelevant document (not a DPA)",
+      "expected": {
+        "clausesPresent": [],
+        "requiredGaps": [
+          "data_processing_purpose",
+          "subprocessor_controls",
+          "breach_notification",
+          "data_subject_rights",
+          "security_measures",
+          "audit_rights"
+        ],
+        "riskBand": ["High", "Critical"],
+        "note": "Non-DPA input: zero clauses detected, all required clauses missing -> max risk. FOLLOW-UP: add a 'not a DPA / insufficient content' guard so garbage uploads are flagged as unscoreable rather than 'Critical DPA risk'."
+      },
+      "text": "WEEKLY KITCHEN NEWSLETTER\n\nThis week we explore slow-roasted vegetables and the art of a good stock. Begin by selecting seasonal produce from your local market.\n\nA classic risotto rewards patience: add warm broth one ladle at a time and stir continuously until the rice is creamy. Finish with butter and parmesan for the best texture."
+    }
+  ]
+}

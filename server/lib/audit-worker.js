@@ -7,12 +7,8 @@ const { notify } = require('./notifications');
 const email = require('./email');
 const logger = require('./logger');
 const { auditJobDuration, auditJobsTotal, auditQueueSize } = require('./metrics');
-
-// Load audit engine data files (bundled in server/data/)
-const ENGINE_DATA = path.resolve(__dirname, '../data');
-const clauseDetection = JSON.parse(fs.readFileSync(path.join(ENGINE_DATA, 'clause-detection.json.hbs'), 'utf-8'));
-const regulationMapping = JSON.parse(fs.readFileSync(path.join(ENGINE_DATA, 'regulation-mapping.json.hbs'), 'utf-8'));
-const remediationLanguage = JSON.parse(fs.readFileSync(path.join(ENGINE_DATA, 'remediation-language.json.hbs'), 'utf-8'));
+// Audit analyzer — LLM-primary clause detection with deterministic fallback
+const auditAnalyzer = require('./audit-analyzer');
 
 // ─── BullMQ Queue (Redis-backed, persistent) ───────────
 let auditQueue = null;
@@ -26,6 +22,11 @@ let memProcessing = false;
 function initBullMQ() {
   const redisUrl = process.env.REDIS_URL;
   if (!redisUrl) {
+    // In production the in-memory queue is not acceptable — it loses jobs on
+    // restart. config.validateEnv() already fails startup, but guard here too.
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('REDIS_URL is required in production — refusing to start with the non-durable in-memory audit queue.');
+    }
     logger.warn('REDIS_URL not set — using in-memory queue (not production-safe)');
     return false;
   }
@@ -195,177 +196,6 @@ async function extractText(filePath) {
   throw new Error(`Unsupported file type: ${ext}`);
 }
 
-// ─── Clause Detection ──────────────────────────────────
-
-function detectClauses(text) {
-  const paragraphs = text.split(/(\r?\n){2,}/);
-  const clauses = {};
-
-  for (const para of paragraphs) {
-    const trimmed = para.trim();
-    if (trimmed.length < clauseDetection.heuristics.min_clause_length) continue;
-
-    for (const key of Object.keys(clauseDetection.patterns)) {
-      const regexList = clauseDetection.patterns[key];
-      const keywords = clauseDetection.keywords[key] || [];
-
-      let regexHit = false;
-      for (const regex of regexList) {
-        // Strip Python-style (?i) inline flags — JS uses RegExp flag arg instead
-        const cleaned = regex.replace(/\(\?[imsx]+\)/g, '');
-        if (new RegExp(cleaned, 'i').test(trimmed)) {
-          regexHit = true;
-          break;
-        }
-      }
-
-      let keywordHits = 0;
-      for (const kw of keywords) {
-        if (new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(trimmed)) {
-          keywordHits++;
-        }
-      }
-
-      const keywordScore = keywords.length > 0 ? keywordHits / keywords.length : 0;
-      const confidence = regexHit ? 0.7 + (keywordScore * 0.3) : keywordScore;
-
-      if (confidence >= clauseDetection.heuristics.confidence_threshold) {
-        if (!clauses[key]) {
-          clauses[key] = trimmed;
-        }
-      }
-    }
-  }
-
-  return clauses;
-}
-
-// ─── Regulation Mapping ─────────────────────────────────
-
-function mapRegulations(clauses) {
-  const matrix = {};
-  for (const clause of Object.keys(clauses)) {
-    matrix[clause] = regulationMapping.mapping[clause] || [];
-  }
-  return matrix;
-}
-
-// ─── Gap Analysis ───────────────────────────────────────
-
-function analyzeGaps(clauses) {
-  const required = [
-    'data_processing_purpose',
-    'subprocessor_controls',
-    'breach_notification',
-    'data_subject_rights',
-    'security_measures',
-    'audit_rights'
-  ];
-  return required.filter(req => !clauses[req]);
-}
-
-// ─── Risk Scoring ───────────────────────────────────────
-
-const FRAMEWORK_WEIGHTS = { GDPR: 5, CCPA: 3, 'ISO 27701': 2, 'SOC 2': 2 };
-
-const SEVERITY_LIKELIHOOD = {
-  breach_notification: [5, 4],
-  subprocessor_controls: [4, 3],
-  data_subject_rights: [4, 3],
-  security_measures: [5, 3],
-  audit_rights: [3, 2]
-};
-
-function getRegulatoryExposure(frameworkRefs) {
-  let total = 0;
-  for (const ref of frameworkRefs) {
-    for (const [fw, weight] of Object.entries(FRAMEWORK_WEIGHTS)) {
-      if (ref.startsWith(fw)) total += weight;
-    }
-  }
-  if (total <= 0) return 1;
-  return Math.min(5, Math.round(total / 3));
-}
-
-function scoreRisk(clauses, matrix, gaps) {
-  const clauseScores = [];
-  let totalScore = 0;
-
-  for (const clauseKey of Object.keys(clauses)) {
-    const frameworkRefs = matrix[clauseKey] || [];
-    const regExposure = getRegulatoryExposure(frameworkRefs);
-    const [sev, lik] = SEVERITY_LIKELIHOOD[clauseKey] || [3, 2];
-    const clauseScore = Math.round(((sev * 0.5) + (lik * 0.3) + (regExposure * 0.2)) * 20);
-
-    totalScore += clauseScore;
-    clauseScores.push({
-      clause: clauseKey,
-      severity: sev,
-      likelihood: lik,
-      regulatory_exposure: regExposure,
-      score: clauseScore
-    });
-  }
-
-  const overall = clauseScores.length > 0 ? Math.round(totalScore / clauseScores.length) : 0;
-  const riskLevel = overall <= 20 ? 'Low' : overall <= 50 ? 'Moderate' : overall <= 75 ? 'High' : 'Critical';
-
-  return {
-    overall_risk: riskLevel,
-    score: overall,
-    clause_scores: clauseScores,
-    missing_clauses: gaps
-  };
-}
-
-// ─── Remediation ────────────────────────────────────────
-
-function generateRemediation(gaps, clauseScores) {
-  const remediation = [];
-
-  for (const gap of gaps) {
-    const template = remediationLanguage.templates[gap];
-    if (template) {
-      remediation.push({
-        clause: gap,
-        action: 'missing',
-        title: template.title,
-        severity: template.severity,
-        suggested_language: template.suggested_language,
-        references: template.references
-      });
-    } else {
-      remediation.push({
-        clause: gap,
-        action: 'missing',
-        title: `Add clause: ${gap}`,
-        severity: 'Moderate',
-        suggested_language: 'No template available. Consult legal counsel.',
-        references: []
-      });
-    }
-  }
-
-  for (const cs of clauseScores) {
-    if (cs.score >= 70) {
-      const template = remediationLanguage.templates[cs.clause];
-      if (template) {
-        remediation.push({
-          clause: cs.clause,
-          action: 'strengthen',
-          title: `Strengthen: ${template.title}`,
-          severity: template.severity,
-          risk_score: cs.score,
-          suggested_language: template.suggested_language,
-          references: template.references
-        });
-      }
-    }
-  }
-
-  return remediation;
-}
-
 // ─── Main Audit Job ─────────────────────────────────────
 
 async function runAuditJob(job) {
@@ -375,29 +205,20 @@ async function runAuditJob(job) {
     throw new Error('Document is empty or too short to analyze');
   }
 
-  // 2. Detect clauses
-  const clauses = detectClauses(text);
-
-  // 3. Map regulations
-  const matrix = mapRegulations(clauses);
-
-  // 4. Gap analysis
-  const gaps = analyzeGaps(clauses);
-
-  // 5. Risk scoring
-  const risk = scoreRisk(clauses, matrix, gaps);
-
-  // 6. Remediation
-  const remediation = generateRemediation(gaps, risk.clause_scores);
+  // 2-6. Analysis: LLM-primary clause detection (falls back to deterministic
+  // regex when no AI_PROVIDER is configured), then deterministic scoring.
+  const analysis = await auditAnalyzer.analyze(text);
+  logger.info({ auditId: job.auditId, extractor: analysis.extractor }, 'Audit analysis complete');
 
   // 7. Build report
   const report = {
     contract: job.contractPath,
-    clauses,
-    compliance_matrix: matrix,
-    gap_report: gaps,
-    risk_profile: risk,
-    remediation_plan: remediation,
+    clauses: analysis.clauses,
+    compliance_matrix: analysis.compliance_matrix,
+    gap_report: analysis.gap_report,
+    risk_profile: analysis.risk_profile,
+    remediation_plan: analysis.remediation_plan,
+    extractor: analysis.extractor,
     generated: new Date().toISOString()
   };
 
