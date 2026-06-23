@@ -19,6 +19,21 @@ function formatClauseName(key) {
   return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
+/* --- Load Error Banner: shown when a data fetch fails (vs. silent empty) --- */
+export function LoadError({ message, onRetry }) {
+  if (!message) return null;
+  return (
+    <div className="error-banner" role="alert">
+      <span className="error-banner-msg">⚠ {message}</span>
+      {onRetry && (
+        <button type="button" className="error-banner-retry" onClick={onRetry}>
+          Retry
+        </button>
+      )}
+    </div>
+  );
+}
+
 /* --- Risk Gauge: SVG radial 270° arc with count-up animation --- */
 export function RiskGauge({ score, riskLevel }) {
   const target = Math.max(0, Math.min(100, Number(score) || 0));

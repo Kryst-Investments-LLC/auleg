@@ -5,7 +5,8 @@ import {
   ClauseScoresTable,
   FrameworkHeatmap,
   GapReport,
-  RemediationPlan
+  RemediationPlan,
+  LoadError
 } from './components';
 
 function downloadBlob(blob, filename) {
@@ -132,6 +133,7 @@ export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, o
   const [aiLoading, setAiLoading] = useState(false);
   const [nlQuery, setNlQuery] = useState('');
   const [nlResults, setNlResults] = useState(null);
+  const [loadError, setLoadError] = useState(null);
   const pollRef = useRef(null);
 
   const loadShares = useCallback(async (auditId) => {
@@ -144,6 +146,7 @@ export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, o
 
   const loadAudits = useCallback(async () => {
     try {
+      setLoadError(null);
       const params = {};
       if (searchText) params.search = searchText;
       if (filterStatus) params.status = filterStatus;
@@ -152,6 +155,7 @@ export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, o
       setAudits(data.audits);
     } catch (err) {
       console.error('Failed to load audits:', err);
+      setLoadError(err.message || 'Failed to load audits. Please retry.');
     }
   }, [searchText, filterStatus, filterRisk]);
 
@@ -329,6 +333,7 @@ export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, o
       {view === 'history' && (
         <div className="card">
           <h2>Audit History</h2>
+          <LoadError message={loadError} onRetry={loadAudits} />
           {/* AI Natural Language Search */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
             <input type="text" value={nlQuery} onChange={e => setNlQuery(e.target.value)}

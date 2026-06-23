@@ -592,6 +592,35 @@ button[aria-disabled='true'] {
   list-style: none;
 }
 
+/* Load-error banner — surfaced when a data fetch fails (vs. silent empty) */
+.error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--accent-red);
+  border-left: 3px solid var(--accent-red);
+  border-radius: 8px;
+  color: var(--accent-red);
+  font-size: 14px;
+}
+.error-banner-msg { flex: 1; }
+.error-banner-retry {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--accent-red);
+  border-radius: 6px;
+  color: var(--accent-red);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.error-banner-retry:hover { background: rgba(239, 68, 68, 0.15); }
+
 .gap-list li {
   padding: 10px 14px;
   background: rgba(239,68,68,0.1);

@@ -175,6 +175,29 @@ test.describe('Dashboard Error States', () => {
     }
   });
 
+  test('shows a load-error banner when the audit list fails to load', async ({ page }) => {
+    // Force the audit list endpoint to fail, then re-trigger the load via search.
+    await page.route('**/api/audits**', route => {
+      if (route.request().method() === 'GET') {
+        return route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'Internal server error' }),
+        });
+      }
+      return route.continue();
+    });
+
+    // Typing in search re-runs loadAudits, which now hits the mocked 500.
+    await page.locator('input[placeholder="Search by contract name..."]').fill('trigger-error');
+
+    const banner = page.locator('.error-banner');
+    await expect(banner).toBeVisible({ timeout: 10000 });
+    await expect(banner).toContainText(/error|failed/i);
+    // The retry control is offered.
+    await expect(page.locator('.error-banner-retry')).toBeVisible();
+  });
+
   test('notification bell is visible', async ({ page }) => {
     // The notification bell button should be present in nav
     const notifBtn = page.locator('.dashboard-nav-right .dash-nav-btn').first();
