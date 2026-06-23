@@ -61,7 +61,9 @@ async function generateQuestions(topic, opts = {}) {
 /** Research a single question: retrieve sources, synthesize a grounded finding. */
 async function researchQuestion(q, opts = {}) {
   const complete = opts.complete || ai.llmComplete;
-  const retrieve = opts.retrieve;
+  // Default grounding: the platform's verified KB (enforcement + guidance with
+  // sourceUrls). Pass opts.retrieve to use a different backend (e.g. web search).
+  const retrieve = opts.retrieve || require('./kb-retrieval').kbRetrieve;
   if (typeof complete !== 'function') return null;
 
   const sources = typeof retrieve === 'function' ? (await retrieve(q.question)) || [] : [];
