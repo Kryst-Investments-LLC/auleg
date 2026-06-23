@@ -7,6 +7,7 @@ import {
   listScoringRules, createScoringRule, updateScoringRule, deleteScoringRule,
   getPreferences, updatePreferences
 } from './api';
+import { LoadError } from './components';
 
 const CLAUSE_OPTIONS = [
   'audit_rights', 'breach_notification', 'data_subject_rights',
@@ -54,8 +55,10 @@ function WebhooksPanel() {
   const [events, setEvents] = useState('audit.complete,audit.failed');
   const [newSecret, setNewSecret] = useState(null);
 
+  const [loadError, setLoadError] = useState(null);
   const load = useCallback(async () => {
-    try { const d = await listWebhooks(); setHooks(d.webhooks); } catch {}
+    try { setLoadError(null); const d = await listWebhooks(); setHooks(d.webhooks); }
+    catch (e) { setLoadError(e.message || 'Failed to load webhooks.'); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -84,6 +87,7 @@ function WebhooksPanel() {
 
   return (
     <>
+      <LoadError message={loadError} onRetry={load} />
       <div className="card" style={{ marginBottom: 24 }}>
         <h2>Add Webhook</h2>
         <form onSubmit={handleCreate} style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
@@ -139,8 +143,10 @@ function TemplatesPanel() {
   const [clauses, setClauses] = useState([]);
   const [frameworks, setFrameworks] = useState([]);
 
+  const [loadError, setLoadError] = useState(null);
   const load = useCallback(async () => {
-    try { const d = await listTemplates(); setTemplates(d.templates); } catch {}
+    try { setLoadError(null); const d = await listTemplates(); setTemplates(d.templates); }
+    catch (e) { setLoadError(e.message || 'Failed to load templates.'); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -171,6 +177,7 @@ function TemplatesPanel() {
 
   return (
     <>
+      <LoadError message={loadError} onRetry={load} />
       <div className="card" style={{ marginBottom: 24 }}>
         <h2>Create Template</h2>
         <form onSubmit={handleCreate} style={{ marginTop: 12 }}>
@@ -246,8 +253,10 @@ function ApiKeysPanel() {
   const [expiry, setExpiry] = useState('');
   const [newKey, setNewKey] = useState(null);
 
+  const [loadError, setLoadError] = useState(null);
   const load = useCallback(async () => {
-    try { const d = await listApiKeys(); setKeys(d.keys); } catch {}
+    try { setLoadError(null); const d = await listApiKeys(); setKeys(d.keys); }
+    catch (e) { setLoadError(e.message || 'Failed to load API keys.'); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -274,6 +283,7 @@ function ApiKeysPanel() {
 
   return (
     <>
+      <LoadError message={loadError} onRetry={load} />
       <div className="card" style={{ marginBottom: 24 }}>
         <h2>Create API Key</h2>
         <form onSubmit={handleCreate} style={{ marginTop: 12 }}>
@@ -338,8 +348,10 @@ function SchedulesPanel() {
   const [auditId, setAuditId] = useState('');
   const [cron, setCron] = useState('0 0 * * 1');
 
+  const [loadError, setLoadError] = useState(null);
   const load = useCallback(async () => {
-    try { const d = await listSchedules(); setSchedules(d.schedules); } catch {}
+    try { setLoadError(null); const d = await listSchedules(); setSchedules(d.schedules); }
+    catch (e) { setLoadError(e.message || 'Failed to load schedules.'); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -365,6 +377,7 @@ function SchedulesPanel() {
 
   return (
     <>
+      <LoadError message={loadError} onRetry={load} />
       <div className="card" style={{ marginBottom: 24 }}>
         <h2>Create Schedule</h2>
         <form onSubmit={handleCreate} style={{ marginTop: 12 }}>
@@ -424,8 +437,10 @@ function ScoringPanel() {
   const [action, setAction] = useState('flag');
   const [editId, setEditId] = useState(null);
 
+  const [loadError, setLoadError] = useState(null);
   const load = useCallback(async () => {
-    try { const d = await listScoringRules(); setRules(d.rules); } catch {}
+    try { setLoadError(null); const d = await listScoringRules(); setRules(d.rules); }
+    catch (e) { setLoadError(e.message || 'Failed to load scoring rules.'); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -460,6 +475,7 @@ function ScoringPanel() {
 
   return (
     <>
+      <LoadError message={loadError} onRetry={load} />
       <div className="card" style={{ marginBottom: 24 }}>
         <h2>{editId ? 'Edit Scoring Rule' : 'Create Scoring Rule'}</h2>
         <form onSubmit={handleSubmit} style={{ marginTop: 12 }}>

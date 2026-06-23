@@ -7,30 +7,41 @@ import {
   getCurrentTerms, createLegalDocument,
   getSlaStatus, getReadiness
 } from './api';
+import { LoadError } from './components';
 
 export default function AdminPage({ onBack }) {
   const [tab, setTab] = useState('stats');
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [loadError, setLoadError] = useState(null);
 
   const loadStats = useCallback(async () => {
-    try { setStats(await adminGetStats()); } catch {}
+    try { setLoadError(null); setStats(await adminGetStats()); }
+    catch (e) { setLoadError(e.message || 'Failed to load stats.'); }
   }, []);
 
   const loadUsers = useCallback(async () => {
     try {
+      setLoadError(null);
       const data = await adminListUsers();
       setUsers(data.users);
-    } catch {}
+    } catch (e) { setLoadError(e.message || 'Failed to load users.'); }
   }, []);
 
   const loadLogs = useCallback(async () => {
     try {
+      setLoadError(null);
       const data = await adminGetActivity();
       setLogs(data.logs);
-    } catch {}
+    } catch (e) { setLoadError(e.message || 'Failed to load activity.'); }
   }, []);
+
+  const reloadCurrent = useCallback(() => {
+    if (tab === 'users') return loadUsers();
+    if (tab === 'activity') return loadLogs();
+    return loadStats();
+  }, [tab, loadUsers, loadLogs, loadStats]);
 
   useEffect(() => { loadStats(); }, [loadStats]);
 
@@ -76,6 +87,8 @@ export default function AdminPage({ onBack }) {
           </button>
         ))}
       </div>
+
+      <LoadError message={loadError} onRetry={reloadCurrent} />
 
       {tab === 'stats' && stats && (
         <div className="bottom-grid">
