@@ -35,6 +35,13 @@ function collectErrors() {
     }
   }
 
+  // Non-fatal strength check: a short JWT_SECRET is weak. Warn rather than fail
+  // so an already-live deployment is never broken by this — see docs/SECURITY-SECRETS.md (S2).
+  const jwt = process.env.JWT_SECRET;
+  if (jwt && jwt.trim() !== '' && jwt !== 'change-this-to-a-secure-random-string-in-production' && jwt.length < 32) {
+    console.warn(`WARNING: JWT_SECRET is only ${jwt.length} chars — use at least 32 random bytes (see docs/SECURITY-SECRETS.md).`);
+  }
+
   if (isProd && process.env.STRIPE_SECRET_KEY && !process.env.STRIPE_WEBHOOK_SECRET) {
     errors.push('STRIPE_WEBHOOK_SECRET is required when Stripe billing is enabled in production');
   }

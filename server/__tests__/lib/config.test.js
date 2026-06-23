@@ -45,4 +45,15 @@ describe('config.collectErrors — Redis requirement', () => {
     const errors = collectErrors();
     expect(errors.some(e => /REDIS_URL/.test(e))).toBe(false);
   });
+
+  test('short JWT_SECRET warns but is non-fatal (no error added)', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    process.env.NODE_ENV = 'production';
+    process.env.REDIS_URL = 'redis://localhost:6379';
+    process.env.JWT_SECRET = 'short';
+    const errors = collectErrors();
+    expect(errors.some(e => /JWT_SECRET/.test(e))).toBe(false); // not fatal
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/JWT_SECRET is only 5 chars/));
+    warn.mockRestore();
+  });
 });
