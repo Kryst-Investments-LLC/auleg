@@ -77,12 +77,12 @@ function WebhooksPanel() {
   };
 
   const handleToggle = async (id, active) => {
-    try { await updateWebhook(id, { active: !active }); await load(); } catch {}
+    try { await updateWebhook(id, { active: !active }); await load(); } catch (e) { alert('Failed: ' + e.message); }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this webhook?')) return;
-    try { await deleteWebhook(id); await load(); } catch {}
+    try { await deleteWebhook(id); await load(); } catch (e) { alert('Failed: ' + e.message); }
   };
 
   return (
@@ -172,7 +172,7 @@ function TemplatesPanel() {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete template?')) return;
-    try { await deleteTemplate(id); await load(); } catch {}
+    try { await deleteTemplate(id); await load(); } catch (e) { alert('Failed: ' + e.message); }
   };
 
   return (
@@ -278,7 +278,7 @@ function ApiKeysPanel() {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Revoke this API key? This cannot be undone.')) return;
-    try { await deleteApiKey(id); await load(); } catch {}
+    try { await deleteApiKey(id); await load(); } catch (e) { alert('Failed: ' + e.message); }
   };
 
   return (
@@ -367,12 +367,12 @@ function SchedulesPanel() {
   };
 
   const handleToggle = async (id, active) => {
-    try { await updateSchedule(id, { active: !active }); await load(); } catch {}
+    try { await updateSchedule(id, { active: !active }); await load(); } catch (e) { alert('Failed: ' + e.message); }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this schedule?')) return;
-    try { await deleteSchedule(id); await load(); } catch {}
+    try { await deleteSchedule(id); await load(); } catch (e) { alert('Failed: ' + e.message); }
   };
 
   return (
@@ -466,11 +466,11 @@ function ScoringPanel() {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this scoring rule?')) return;
-    try { await deleteScoringRule(id); if (editId === id) resetForm(); await load(); } catch {}
+    try { await deleteScoringRule(id); if (editId === id) resetForm(); await load(); } catch (e) { alert('Failed: ' + e.message); }
   };
 
   const handleToggle = async (r) => {
-    try { await updateScoringRule(r.id, { active: !r.active }); await load(); } catch {}
+    try { await updateScoringRule(r.id, { active: !r.active }); await load(); } catch (e) { alert('Failed: ' + e.message); }
   };
 
   return (
@@ -548,9 +548,11 @@ function ScoringPanel() {
 function PreferencesPanel() {
   const [prefs, setPrefs] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   const load = useCallback(async () => {
-    try { const p = await getPreferences(); setPrefs(p); } catch {}
+    try { setLoadError(null); const p = await getPreferences(); setPrefs(p); }
+    catch (e) { setLoadError(e.message || 'Failed to load preferences.'); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -564,7 +566,13 @@ function PreferencesPanel() {
     finally { setSaving(false); }
   };
 
-  if (!prefs) return <div className="card"><p className="subtitle">Loading preferences...</p></div>;
+  if (!prefs) return (
+    <div className="card">
+      {loadError
+        ? <LoadError message={loadError} onRetry={load} />
+        : <p className="subtitle">Loading preferences...</p>}
+    </div>
+  );
 
   return (
     <div className="card">
