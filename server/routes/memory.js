@@ -5,8 +5,10 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
+const { requireRole } = require('../middleware/rbac');
 const { requireAccessibleAudit } = require('../lib/access');
 const { recordOverride, getOrgPlaybook, VALID_ACTIONS } = require('../lib/playbook');
+const { listPending, approveItem, rejectItem } = require('../lib/kb-review');
 const { activityFromReq } = require('../lib/activity');
 
 router.use(authMiddleware);
@@ -67,6 +69,43 @@ router.get('/playbook', async (req, res, next) => {
   try {
     const playbook = await getOrgPlaybook(req.user.orgId || null);
     res.json(playbook);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── KB human-review gate (admin only) ────────────────
+
+/**
+ * @swagger
+ * /api/memory/review:
+ *   get:
+ *     summary: List pending AI-generated KB findings awaiting review (admin)
+ *     tags: [Memory]
+ */
+router.get('/review', requireRole('admin'), async (req, res, next) => {
+  try {
+    res.json({ items: await listPending({ limit: 100, kind: req.query.kind }) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/review/:id/approve', requireRole('admin'), async (req, res, next) => {
+  try {
+    const result = await approveItem(req.params.id, req.user.id);
+    await activityFromReq(req, 'kb.review.approve', req.params.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/review/:id/reject', requireRole('admin'), async (req, res, next) => {
+  try {
+    const result = await rejectItem(req.params.id, req.user.id, req.body?.note);
+    await activityFromReq(req, 'kb.review.reject', req.params.id);
+    res.json(result);
   } catch (err) {
     next(err);
   }
