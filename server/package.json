@@ -11,6 +11,10 @@
     "dev": "node --watch index.js",
     "test": "jest --forceExit --detectOpenHandles",
     "test:coverage": "jest --forceExit --detectOpenHandles --coverage",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "db:migrate": "npx prisma migrate deploy",
     "db:migrate:dev": "npx prisma migrate dev",
     "db:push": "npx prisma db push",
@@ -23,6 +27,7 @@
   "description": "",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",
+    "@node-saml/passport-saml": "^5.0.1",
     "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.7.0",
     "@sendgrid/mail": "^8.1.6",
@@ -42,7 +47,6 @@
     "openai": "^6.34.0",
     "openid-client": "^6.8.3",
     "passport": "^0.7.0",
-    "@node-saml/passport-saml": "^5.0.1",
     "pdf-parse": "^2.4.5",
     "pg": "^8.20.0",
     "pino": "^10.3.1",
@@ -58,5 +62,12 @@
   "overrides": {
     "@hono/node-server": "^1.19.13",
     "hono": "^4.12.14"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.5.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.7.0",
+    "prettier": "^3.8.4"
   }
 }

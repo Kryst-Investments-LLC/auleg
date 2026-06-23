@@ -8,7 +8,7 @@ router.use(authMiddleware);
 
 // Simple cron validation (5-part cron: min hour dom month dow)
 function isValidCron(expr) {
-  return /^(\*|[0-9,\-\/]+)\s+(\*|[0-9,\-\/]+)\s+(\*|[0-9,\-\/]+)\s+(\*|[0-9,\-\/]+)\s+(\*|[0-9,\-\/]+)$/.test(expr.trim());
+  return /^(\*|[0-9,\-/]+)\s+(\*|[0-9,\-/]+)\s+(\*|[0-9,\-/]+)\s+(\*|[0-9,\-/]+)\s+(\*|[0-9,\-/]+)$/.test(expr.trim());
 }
 
 // Calculate next run from a simple cron (approximation for common patterns)
