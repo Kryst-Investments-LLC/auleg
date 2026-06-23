@@ -23,6 +23,18 @@ model User {
   audits              Audit[]
   failedLoginAttempts Int      @default(0)
   lockedUntil         DateTime?
+  // MFA (TOTP)
+  mfaSecret           String?  // Base32-encoded TOTP secret
+  mfaEnabled          Boolean  @default(false)
+  mfaBackupCodes      String?  // JSON array of hashed backup codes
+  // Trial
+  trialPlan           String?  // plan granted during trial (e.g. "pro")
+  trialStartedAt      DateTime?
+  trialEndsAt         DateTime?
+  trialExpired        Boolean  @default(false)
+  // Refresh tokens
+  refreshTokenHash    String?  // SHA-256 of current refresh token
+  refreshTokenExp     DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
@@ -67,8 +79,30 @@ model Audit {
   org              Org?     @relation(fields: [orgId], references: [id])
   shares           AuditShare[]
   comments         AuditComment[]
+  findingOverrides AuditFindingOverride[]
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+// Memory loop: records when a human corrects an AI finding for a clause. These
+// overrides are aggregated per org into a "playbook" that biases future audits
+// (see lib/playbook.js), so the platform learns each org's standards over time.
+model AuditFindingOverride {
+  id            String   @id @default(uuid())
+  auditId       String
+  audit         Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  orgId         String?  // org-scoped memory; null = personal (solo user)
+  userId        String
+  userEmail     String
+  clause        String   // clause key the override applies to
+  action        String   // accept | reject | adjust
+  originalScore Int?     // the AI's score at the time
+  overrideScore Int?     // the human-corrected score (for action=adjust)
+  note          String?
+  createdAt     DateTime @default(now())
+
+  @@index([orgId, clause])
+  @@index([auditId])
 }
 
 model ActivityLog {
@@ -79,6 +113,14 @@ model ActivityLog {
   userEmail String?
   ip        String?
   createdAt DateTime @default(now())
+  // GAP-021: Tamper-evident hash chain
+  // hash = SHA-256(prevHash || id || action || detail || userId || userEmail || ip || createdAt)
+  prevHash  String?  // SHA-256 of previous log entry; null only for the genesis entry
+  hash      String?  // SHA-256 of THIS entry; populated post-insert via trigger or app-side
+  sequence  BigInt   @default(0) // Monotonic sequence number for ordering verification
+
+  @@index([sequence])
+  @@index([userId, createdAt])
 }
 
 model Webhook {

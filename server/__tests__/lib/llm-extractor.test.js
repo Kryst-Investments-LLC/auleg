@@ -73,4 +73,18 @@ describe('llm-extractor.extractClauses', () => {
     const map = await extractClauses('a DPA document', { complete: fake });
     expect(Object.keys(map).sort()).toEqual(['breach_notification', 'cross_border_transfer']);
   });
+
+  test('appends org playbook context to the prompt (memory loop)', async () => {
+    let capturedUser = '';
+    const fake = async (_system, user) => {
+      capturedUser = user;
+      return JSON.stringify({ clauses: {} });
+    };
+    await extractClauses('a DPA document', {
+      complete: fake,
+      playbookContext: '\n## Organization Playbook\n- liability: 3 rejected — this org tends stricter'
+    });
+    expect(capturedUser).toMatch(/Organization Playbook/);
+    expect(capturedUser).toMatch(/3 rejected/);
+  });
 });

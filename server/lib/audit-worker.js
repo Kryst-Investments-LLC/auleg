@@ -205,9 +205,21 @@ async function runAuditJob(job) {
     throw new Error('Document is empty or too short to analyze');
   }
 
+  // Memory loop: bias detection with this org's past reviewer decisions.
+  let playbookContext = '';
+  try {
+    const { getOrgPlaybook, buildPlaybookPromptContext } = require('./playbook');
+    const auditRow = await prisma.audit.findUnique({ where: { id: job.auditId }, select: { orgId: true } });
+    if (auditRow?.orgId) {
+      playbookContext = buildPlaybookPromptContext(await getOrgPlaybook(auditRow.orgId));
+    }
+  } catch (err) {
+    logger.warn({ auditId: job.auditId, err: err.message }, 'Org playbook load failed — proceeding without memory context');
+  }
+
   // 2-6. Analysis: LLM-primary clause detection (falls back to deterministic
   // regex when no AI_PROVIDER is configured), then deterministic scoring.
-  const analysis = await auditAnalyzer.analyze(text);
+  const analysis = await auditAnalyzer.analyze(text, { playbookContext });
   logger.info({ auditId: job.auditId, extractor: analysis.extractor }, 'Audit analysis complete');
 
   // 7. Build report

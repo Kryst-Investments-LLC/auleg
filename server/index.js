@@ -56,6 +56,7 @@ const epssRoutes = require('./routes/epss');
 const licenseRoutes = require('./routes/licenses');
 const mfaRoutes = require('./routes/mfa');
 const complianceRoutes = require('./routes/compliance');
+const memoryRoutes = require('./routes/memory');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -201,6 +202,7 @@ app.use('/api/epss', epssRoutes);
 app.use('/api/licenses', licenseRoutes);
 app.use('/api/mfa', mfaRoutes);
 app.use('/api/compliance', complianceRoutes);
+app.use('/api/memory', memoryRoutes);
 app.use('/api/v1', publicApiV1);
 
 // Prometheus metrics endpoint (internal, not rate-limited)

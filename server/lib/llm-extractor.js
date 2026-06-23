@@ -84,6 +84,9 @@ function parseClauseResponse(raw) {
  * @param {object} [opts]
  * @param {(system:string,user:string)=>Promise<string|null>} [opts.complete]
  *        Completion function. Defaults to ai.llmComplete (null when no provider).
+ * @param {string} [opts.playbookContext]
+ *        Org playbook context (memory loop) appended to the prompt so detection
+ *        reflects the org's past reviewer decisions.
  * @returns {Promise<Object<string,string>|null>} Clause map, or null to fall back.
  */
 async function extractClauses(text, opts = {}) {
@@ -91,9 +94,13 @@ async function extractClauses(text, opts = {}) {
   if (typeof complete !== 'function') return null;
   if (CLAUSE_KEYS.length === 0) return null;
 
+  const userPrompt = opts.playbookContext
+    ? `${buildUserPrompt(text)}\n${opts.playbookContext}`
+    : buildUserPrompt(text);
+
   let raw;
   try {
-    raw = await complete(buildSystemPrompt(), buildUserPrompt(text));
+    raw = await complete(buildSystemPrompt(), userPrompt);
   } catch {
     return null;
   }
