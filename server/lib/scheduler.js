@@ -27,6 +27,12 @@ async function runTrialExpiry(deps = {}) {
   return count;
 }
 
+/** Deep-researcher cycle: ingest fresh enforcement/guidance, recompute signals. */
+async function runDeepResearchJob(deps = {}) {
+  const { runResearchCycle } = deps.researcher || require('./deep-researcher');
+  return runResearchCycle(deps.researchOpts || {});
+}
+
 /**
  * Initialize the scheduler.
  * @param {object} [opts]
@@ -56,21 +62,29 @@ async function initScheduler(opts = {}) {
   queue = new Queue('scheduler', { connection });
   worker = new Worker('scheduler', async (job) => {
     if (job.name === 'trial-expiry') return runTrialExpiry(opts);
+    if (job.name === 'deep-research') return runDeepResearchJob(opts);
     return undefined;
   }, { connection });
 
   worker.on('failed', (job, err) => logger.error({ job: job?.name, err: err.message }, 'scheduler job failed'));
 
-  // Repeatable hourly job — BullMQ dedupes by repeat key, so forking multiple
-  // workers that each call add() still yields a single recurring schedule.
+  // Repeatable jobs — BullMQ dedupes by repeat key, so forking multiple workers
+  // that each call add() still yields a single recurring schedule.
   await queue.add('trial-expiry', {}, {
     repeat: { every: HOUR_MS },
     jobId: 'trial-expiry',
     removeOnComplete: true,
     removeOnFail: 100
   });
+  // Deep researcher — weekly. No-op until a research source is configured.
+  await queue.add('deep-research', {}, {
+    repeat: { every: 7 * 24 * HOUR_MS },
+    jobId: 'deep-research',
+    removeOnComplete: true,
+    removeOnFail: 50
+  });
 
-  logger.info('Scheduler initialized with BullMQ (trial-expiry hourly)');
+  logger.info('Scheduler initialized with BullMQ (trial-expiry hourly, deep-research weekly)');
   return { backend: 'bullmq' };
 }
 
@@ -89,4 +103,4 @@ async function shutdownScheduler() {
   }
 }
 
-module.exports = { initScheduler, shutdownScheduler, runTrialExpiry };
+module.exports = { initScheduler, shutdownScheduler, runTrialExpiry, runDeepResearchJob };
