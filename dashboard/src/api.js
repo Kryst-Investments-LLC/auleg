@@ -1,8 +1,53 @@
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:4000/api';
 
+const REFRESH_TOKEN_KEY = 'auleg_refresh_token';
+
 function getCsrfToken() {
   const match = document.cookie.match(/(?:^|;\s*)auleg_csrf=([^;]*)/);
   return match ? decodeURIComponent(match[1]) : null;
+}
+
+function getStoredRefreshToken() {
+  try { return localStorage.getItem(REFRESH_TOKEN_KEY); } catch { return null; }
+}
+
+function storeRefreshToken(token) {
+  try { if (token) localStorage.setItem(REFRESH_TOKEN_KEY, token); } catch {}
+}
+
+function clearRefreshToken() {
+  try { localStorage.removeItem(REFRESH_TOKEN_KEY); } catch {}
+}
+
+let isRefreshing = false;
+let refreshPromise = null;
+
+async function refreshAccessToken() {
+  if (isRefreshing) return refreshPromise;
+  isRefreshing = true;
+
+  refreshPromise = (async () => {
+    const refreshToken = getStoredRefreshToken();
+    if (!refreshToken) throw new Error('No refresh token');
+
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+      credentials: 'include'
+    });
+
+    if (!res.ok) {
+      clearRefreshToken();
+      throw new Error('Refresh failed');
+    }
+
+    const data = await res.json();
+    storeRefreshToken(data.refreshToken);
+    return true;
+  })().finally(() => { isRefreshing = false; refreshPromise = null; });
+
+  return refreshPromise;
 }
 
 async function apiFetch(path, options = {}) {
@@ -20,15 +65,27 @@ async function apiFetch(path, options = {}) {
     if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  let res = await fetch(`${API_BASE}${path}`, {
     ...fetchOptions,
     headers,
     credentials: 'include'
   });
 
+  // Auto-refresh on 401
   if (res.status === 401 && handleAuthFailure) {
-    window.location.reload();
-    throw new Error('Session expired');
+    try {
+      await refreshAccessToken();
+      // Retry the original request
+      res = await fetch(`${API_BASE}${path}`, {
+        ...fetchOptions,
+        headers,
+        credentials: 'include'
+      });
+    } catch {
+      clearRefreshToken();
+      window.location.reload();
+      throw new Error('Session expired');
+    }
   }
 
   if (!res.ok) {
@@ -40,12 +97,33 @@ async function apiFetch(path, options = {}) {
   return res.json();
 }
 
-export async function login(email, password) {
-  const data = await apiFetch('/auth/login', {
+export async function login(email, password, mfaCode, backupCode) {
+  const body = { email, password };
+  if (mfaCode) body.mfaCode = mfaCode;
+  if (backupCode) body.backupCode = backupCode;
+
+  const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
-    handleAuthFailure: false
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    credentials: 'include'
   });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (res.status === 403 && data.mfaRequired) {
+    const err = new Error(data.error || 'MFA required');
+    err.mfaRequired = true;
+    throw err;
+  }
+
+  if (!res.ok) {
+    const err = new Error(data.error || 'Login failed');
+    err.mfaRequired = data.mfaRequired || false;
+    throw err;
+  }
+
+  if (data.refreshToken) storeRefreshToken(data.refreshToken);
   return data.user;
 }
 
@@ -55,6 +133,7 @@ export async function register(email, password, name) {
     body: JSON.stringify({ email, password, name }),
     handleAuthFailure: false
   });
+  if (data.refreshToken) storeRefreshToken(data.refreshToken);
   return data.user;
 }
 
@@ -75,6 +154,7 @@ export async function resetPassword(token, password) {
 }
 
 export function logout() {
+  clearRefreshToken();
   return fetch(`${API_BASE}/auth/logout`, {
     method: 'POST',
     credentials: 'include',
@@ -904,4 +984,42 @@ export async function getSlaStatus() {
 
 export async function getReadiness() {
   return apiFetch('/health/ready');
+}
+
+// --- MFA ---
+export async function mfaSetup() {
+  return apiFetch('/mfa/setup', { method: 'POST' });
+}
+
+export async function mfaVerify(code) {
+  return apiFetch('/mfa/verify', { method: 'POST', body: JSON.stringify({ code }) });
+}
+
+export async function mfaDisable(password) {
+  return apiFetch('/mfa/disable', { method: 'POST', body: JSON.stringify({ password }) });
+}
+
+export async function mfaStatus() {
+  return apiFetch('/mfa/status');
+}
+
+// --- Trial ---
+export async function getTrialStatus() {
+  return apiFetch('/billing/trial');
+}
+
+// --- KB Review (intelligence loops, admin) ---
+export async function kbReviewList(kind) {
+  return apiFetch(`/memory/review${kind ? `?kind=${encodeURIComponent(kind)}` : ''}`);
+}
+
+export async function kbReviewApprove(id) {
+  return apiFetch(`/memory/review/${id}/approve`, { method: 'POST' });
+}
+
+export async function kbReviewReject(id, note) {
+  return apiFetch(`/memory/review/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ note: note || null })
+  });
 }
