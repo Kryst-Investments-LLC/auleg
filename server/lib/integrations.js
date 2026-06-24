@@ -6,7 +6,6 @@
  * Slack/Teams notifications, and SSO/SAML config.
  */
 
-const crypto = require('crypto');
 const prisma = require('./prisma');
 const { buildUserOrgScope, notFound } = require('./access');
 const { normalizeAndValidateOutboundUrl } = require('./url-security');
@@ -79,7 +78,7 @@ function safeParseConfig(configStr) {
     const masked = { ...config };
     if (masked.apiKey) masked.apiKey = masked.apiKey.substring(0, 8) + '***';
     if (masked.secret) masked.secret = '***';
-    if (masked.webhookUrl) masked.webhookUrl = masked.webhookUrl; // keep URL visible
+    // webhookUrl is intentionally left visible (not treated as a secret)
     return masked;
   } catch { return {}; }
 }

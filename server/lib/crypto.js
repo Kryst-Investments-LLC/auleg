@@ -7,7 +7,6 @@ const crypto = require('crypto');
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
-const TAG_LENGTH = 16;
 
 function getEncryptionKey() {
   const raw = process.env.WEBHOOK_ENCRYPTION_KEY || process.env.JWT_SECRET;

@@ -5,8 +5,10 @@ import {
   ClauseScoresTable,
   FrameworkHeatmap,
   GapReport,
-  RemediationPlan
+  RemediationPlan,
+  LoadError
 } from './components';
+import sampleReport from './sampleReport';
 
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -132,6 +134,7 @@ export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, o
   const [aiLoading, setAiLoading] = useState(false);
   const [nlQuery, setNlQuery] = useState('');
   const [nlResults, setNlResults] = useState(null);
+  const [loadError, setLoadError] = useState(null);
   const pollRef = useRef(null);
 
   const loadShares = useCallback(async (auditId) => {
@@ -144,6 +147,7 @@ export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, o
 
   const loadAudits = useCallback(async () => {
     try {
+      setLoadError(null);
       const params = {};
       if (searchText) params.search = searchText;
       if (filterStatus) params.status = filterStatus;
@@ -152,6 +156,7 @@ export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, o
       setAudits(data.audits);
     } catch (err) {
       console.error('Failed to load audits:', err);
+      setLoadError(err.message || 'Failed to load audits. Please retry.');
     }
   }, [searchText, filterStatus, filterRisk]);
 
@@ -228,6 +233,22 @@ export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, o
     } catch (err) {
       alert('Failed to load audit: ' + err.message);
     }
+  };
+
+  // First-run: let new users preview the product on a sample report (no upload).
+  const viewSampleReport = () => {
+    setSelectedAudit({
+      id: 'sample',
+      contractName: 'Sample DPA — Acme Corp (demo)',
+      status: 'complete',
+      overallRisk: sampleReport.risk_profile?.overall_risk,
+      riskScore: sampleReport.risk_profile?.score,
+      createdAt: new Date().toISOString(),
+      tags: ''
+    });
+    setReport(sampleReport);
+    setAuditTags([]);
+    setView('report');
   };
 
   const handleDelete = async (id) => {
@@ -329,6 +350,7 @@ export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, o
       {view === 'history' && (
         <div className="card">
           <h2>Audit History</h2>
+          <LoadError message={loadError} onRetry={loadAudits} />
           {/* AI Natural Language Search */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
             <input type="text" value={nlQuery} onChange={e => setNlQuery(e.target.value)}
@@ -381,6 +403,9 @@ export default function AuditPage({ user, onLogout, onAdmin, onOrg, onCompare, o
                 Upload Your First DPA
                 <input type="file" accept=".txt,.pdf,.docx" onChange={handleUpload} disabled={uploading} hidden />
               </label>
+              <button className="action-btn" style={{ marginTop: 12 }} onClick={viewSampleReport}>
+                Or view a sample report
+              </button>
             </div>
           ) : (
             <table className="scores-table">

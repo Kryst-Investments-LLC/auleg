@@ -10,8 +10,15 @@ const OPTIONAL_DEFAULTS = {
   NODE_ENV: 'development'
 };
 
-function validateEnv() {
+/**
+ * Collect configuration errors from the current environment.
+ * Pure (reads process.env, pushes no side effects) so it can be unit-tested
+ * without triggering process.exit.
+ * @returns {string[]} error messages
+ */
+function collectErrors() {
   const errors = [];
+  const isProd = process.env.NODE_ENV === 'production';
 
   for (const key of REQUIRED) {
     if (!process.env[key] || process.env[key].trim() === '') {
@@ -28,9 +35,28 @@ function validateEnv() {
     }
   }
 
-  if (process.env.NODE_ENV === 'production' && process.env.STRIPE_SECRET_KEY && !process.env.STRIPE_WEBHOOK_SECRET) {
+  // Non-fatal strength check: a short JWT_SECRET is weak. Warn rather than fail
+  // so an already-live deployment is never broken by this — see docs/SECURITY-SECRETS.md (S2).
+  const jwt = process.env.JWT_SECRET;
+  if (jwt && jwt.trim() !== '' && jwt !== 'change-this-to-a-secure-random-string-in-production' && jwt.length < 32) {
+    console.warn(`WARNING: JWT_SECRET is only ${jwt.length} chars — use at least 32 random bytes (see docs/SECURITY-SECRETS.md).`);
+  }
+
+  if (isProd && process.env.STRIPE_SECRET_KEY && !process.env.STRIPE_WEBHOOK_SECRET) {
     errors.push('STRIPE_WEBHOOK_SECRET is required when Stripe billing is enabled in production');
   }
+
+  // Redis is mandatory in production: without it the audit queue silently falls
+  // back to an in-memory queue that loses jobs on restart (not production-safe).
+  if (isProd && (!process.env.REDIS_URL || process.env.REDIS_URL.trim() === '')) {
+    errors.push('REDIS_URL is required in production — the in-memory audit queue is not durable and loses jobs on restart.');
+  }
+
+  return errors;
+}
+
+function validateEnv() {
+  const errors = collectErrors();
 
   // Set optional defaults
   for (const [key, defaultVal] of Object.entries(OPTIONAL_DEFAULTS)) {
@@ -49,4 +75,4 @@ function validateEnv() {
   return { valid: errors.length === 0, errors };
 }
 
-module.exports = { validateEnv };
+module.exports = { validateEnv, collectErrors };

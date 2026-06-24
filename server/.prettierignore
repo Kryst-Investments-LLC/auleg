@@ -1,0 +1,8 @@
+node_modules/
+generated/
+coverage/
+data/
+vex-data/
+uploads/
+prisma/migrations/
+package-lock.json

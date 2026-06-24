@@ -5,39 +5,77 @@ import {
   getAuditLogs, exportAuditLogs, applyAuditLogRetention, getAuditLogStats,
   getDataResidency, updateDataResidency,
   getCurrentTerms, createLegalDocument,
-  getSlaStatus, getReadiness
+  getSlaStatus, getReadiness,
+  kbReviewList, kbReviewApprove, kbReviewReject
 } from './api';
+import { LoadError } from './components';
 
 export default function AdminPage({ onBack }) {
   const [tab, setTab] = useState('stats');
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [loadError, setLoadError] = useState(null);
 
   const loadStats = useCallback(async () => {
-    try { setStats(await adminGetStats()); } catch {}
+    try { setLoadError(null); setStats(await adminGetStats()); }
+    catch (e) { setLoadError(e.message || 'Failed to load stats.'); }
   }, []);
 
   const loadUsers = useCallback(async () => {
     try {
+      setLoadError(null);
       const data = await adminListUsers();
       setUsers(data.users);
-    } catch {}
+    } catch (e) { setLoadError(e.message || 'Failed to load users.'); }
   }, []);
 
   const loadLogs = useCallback(async () => {
     try {
+      setLoadError(null);
       const data = await adminGetActivity();
       setLogs(data.logs);
-    } catch {}
+    } catch (e) { setLoadError(e.message || 'Failed to load activity.'); }
   }, []);
+
+  const [reviewItems, setReviewItems] = useState([]);
+  const loadReview = useCallback(async () => {
+    try {
+      setLoadError(null);
+      const data = await kbReviewList();
+      setReviewItems(data.items || []);
+    } catch (e) { setLoadError(e.message || 'Failed to load review queue.'); }
+  }, []);
+
+  const reloadCurrent = useCallback(() => {
+    if (tab === 'users') return loadUsers();
+    if (tab === 'activity') return loadLogs();
+    if (tab === 'kb-review') return loadReview();
+    return loadStats();
+  }, [tab, loadUsers, loadLogs, loadReview, loadStats]);
 
   useEffect(() => { loadStats(); }, [loadStats]);
 
   useEffect(() => {
     if (tab === 'users') loadUsers();
     if (tab === 'activity') loadLogs();
-  }, [tab, loadUsers, loadLogs]);
+    if (tab === 'kb-review') loadReview();
+  }, [tab, loadUsers, loadLogs, loadReview]);
+
+  const handleApproveReview = async (id) => {
+    try {
+      await kbReviewApprove(id);
+      await loadReview();
+    } catch (err) { alert('Approve failed: ' + err.message); }
+  };
+
+  const handleRejectReview = async (id) => {
+    const note = window.prompt('Reason for rejecting (optional):') || undefined;
+    try {
+      await kbReviewReject(id, note);
+      await loadReview();
+    } catch (err) { alert('Reject failed: ' + err.message); }
+  };
 
   const handleRoleChange = async (userId, role) => {
     try {
@@ -69,13 +107,62 @@ export default function AdminPage({ onBack }) {
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
-        {['stats', 'users', 'activity', 'audit-logs', 'data-residency', 'terms', 'sla'].map(t => (
+        {['stats', 'users', 'activity', 'audit-logs', 'data-residency', 'terms', 'sla', 'kb-review'].map(t => (
           <button key={t} className={`nav-btn${tab === t ? ' active' : ''}`}
             onClick={() => setTab(t)} style={tab === t ? { background: 'var(--accent-blue)', color: '#fff', borderColor: 'var(--accent-blue)' } : {}}>
-            {t === 'audit-logs' ? 'Audit Logs' : t === 'data-residency' ? 'Data Residency' : t === 'sla' ? 'SLA' : t.charAt(0).toUpperCase() + t.slice(1)}
+            {t === 'audit-logs' ? 'Audit Logs' : t === 'data-residency' ? 'Data Residency' : t === 'sla' ? 'SLA' : t === 'kb-review' ? 'KB Review' : t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
+
+      <LoadError message={loadError} onRetry={reloadCurrent} />
+
+      {tab === 'kb-review' && (
+        <div className="card">
+          <h2>Knowledge Base — Review Queue</h2>
+          <p className="subtitle">
+            AI-generated findings (STORM / deep researcher) awaiting approval. Nothing reaches the live KB until approved.
+          </p>
+          {reviewItems.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">✅</div>
+              <h3>Queue is clear</h3>
+              <p>No pending findings to review.</p>
+            </div>
+          ) : (
+            <table className="scores-table">
+              <thead>
+                <tr><th>Kind</th><th>Source</th><th>Finding</th><th>Source URL</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {reviewItems.map(item => {
+                  let payload = {};
+                  try { payload = JSON.parse(item.payload); } catch { payload = {}; }
+                  return (
+                    <tr key={item.id}>
+                      <td>{item.kind}</td>
+                      <td>{item.source}</td>
+                      <td>
+                        <strong>{payload.title || payload.entity || '(untitled)'}</strong>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{payload.summary || ''}</div>
+                      </td>
+                      <td>
+                        {item.sourceUrl
+                          ? <a href={item.sourceUrl} target="_blank" rel="noreferrer">source</a>
+                          : <span style={{ color: 'var(--accent-red)' }}>none</span>}
+                      </td>
+                      <td style={{ display: 'flex', gap: 6 }}>
+                        <button className="action-btn" onClick={() => handleApproveReview(item.id)}>Approve</button>
+                        <button className="action-btn delete" onClick={() => handleRejectReview(item.id)}>Reject</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       {tab === 'stats' && stats && (
         <div className="bottom-grid">

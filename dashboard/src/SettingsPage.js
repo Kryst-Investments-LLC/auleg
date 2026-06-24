@@ -7,6 +7,7 @@ import {
   listScoringRules, createScoringRule, updateScoringRule, deleteScoringRule,
   getPreferences, updatePreferences
 } from './api';
+import { LoadError } from './components';
 
 const CLAUSE_OPTIONS = [
   'audit_rights', 'breach_notification', 'data_subject_rights',
@@ -54,8 +55,10 @@ function WebhooksPanel() {
   const [events, setEvents] = useState('audit.complete,audit.failed');
   const [newSecret, setNewSecret] = useState(null);
 
+  const [loadError, setLoadError] = useState(null);
   const load = useCallback(async () => {
-    try { const d = await listWebhooks(); setHooks(d.webhooks); } catch {}
+    try { setLoadError(null); const d = await listWebhooks(); setHooks(d.webhooks); }
+    catch (e) { setLoadError(e.message || 'Failed to load webhooks.'); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -74,16 +77,17 @@ function WebhooksPanel() {
   };
 
   const handleToggle = async (id, active) => {
-    try { await updateWebhook(id, { active: !active }); await load(); } catch {}
+    try { await updateWebhook(id, { active: !active }); await load(); } catch (e) { alert('Failed: ' + e.message); }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this webhook?')) return;
-    try { await deleteWebhook(id); await load(); } catch {}
+    try { await deleteWebhook(id); await load(); } catch (e) { alert('Failed: ' + e.message); }
   };
 
   return (
     <>
+      <LoadError message={loadError} onRetry={load} />
       <div className="card" style={{ marginBottom: 24 }}>
         <h2>Add Webhook</h2>
         <form onSubmit={handleCreate} style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
@@ -139,8 +143,10 @@ function TemplatesPanel() {
   const [clauses, setClauses] = useState([]);
   const [frameworks, setFrameworks] = useState([]);
 
+  const [loadError, setLoadError] = useState(null);
   const load = useCallback(async () => {
-    try { const d = await listTemplates(); setTemplates(d.templates); } catch {}
+    try { setLoadError(null); const d = await listTemplates(); setTemplates(d.templates); }
+    catch (e) { setLoadError(e.message || 'Failed to load templates.'); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -166,11 +172,12 @@ function TemplatesPanel() {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete template?')) return;
-    try { await deleteTemplate(id); await load(); } catch {}
+    try { await deleteTemplate(id); await load(); } catch (e) { alert('Failed: ' + e.message); }
   };
 
   return (
     <>
+      <LoadError message={loadError} onRetry={load} />
       <div className="card" style={{ marginBottom: 24 }}>
         <h2>Create Template</h2>
         <form onSubmit={handleCreate} style={{ marginTop: 12 }}>
@@ -246,8 +253,10 @@ function ApiKeysPanel() {
   const [expiry, setExpiry] = useState('');
   const [newKey, setNewKey] = useState(null);
 
+  const [loadError, setLoadError] = useState(null);
   const load = useCallback(async () => {
-    try { const d = await listApiKeys(); setKeys(d.keys); } catch {}
+    try { setLoadError(null); const d = await listApiKeys(); setKeys(d.keys); }
+    catch (e) { setLoadError(e.message || 'Failed to load API keys.'); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -269,11 +278,12 @@ function ApiKeysPanel() {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Revoke this API key? This cannot be undone.')) return;
-    try { await deleteApiKey(id); await load(); } catch {}
+    try { await deleteApiKey(id); await load(); } catch (e) { alert('Failed: ' + e.message); }
   };
 
   return (
     <>
+      <LoadError message={loadError} onRetry={load} />
       <div className="card" style={{ marginBottom: 24 }}>
         <h2>Create API Key</h2>
         <form onSubmit={handleCreate} style={{ marginTop: 12 }}>
@@ -338,8 +348,10 @@ function SchedulesPanel() {
   const [auditId, setAuditId] = useState('');
   const [cron, setCron] = useState('0 0 * * 1');
 
+  const [loadError, setLoadError] = useState(null);
   const load = useCallback(async () => {
-    try { const d = await listSchedules(); setSchedules(d.schedules); } catch {}
+    try { setLoadError(null); const d = await listSchedules(); setSchedules(d.schedules); }
+    catch (e) { setLoadError(e.message || 'Failed to load schedules.'); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -355,16 +367,17 @@ function SchedulesPanel() {
   };
 
   const handleToggle = async (id, active) => {
-    try { await updateSchedule(id, { active: !active }); await load(); } catch {}
+    try { await updateSchedule(id, { active: !active }); await load(); } catch (e) { alert('Failed: ' + e.message); }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this schedule?')) return;
-    try { await deleteSchedule(id); await load(); } catch {}
+    try { await deleteSchedule(id); await load(); } catch (e) { alert('Failed: ' + e.message); }
   };
 
   return (
     <>
+      <LoadError message={loadError} onRetry={load} />
       <div className="card" style={{ marginBottom: 24 }}>
         <h2>Create Schedule</h2>
         <form onSubmit={handleCreate} style={{ marginTop: 12 }}>
@@ -424,8 +437,10 @@ function ScoringPanel() {
   const [action, setAction] = useState('flag');
   const [editId, setEditId] = useState(null);
 
+  const [loadError, setLoadError] = useState(null);
   const load = useCallback(async () => {
-    try { const d = await listScoringRules(); setRules(d.rules); } catch {}
+    try { setLoadError(null); const d = await listScoringRules(); setRules(d.rules); }
+    catch (e) { setLoadError(e.message || 'Failed to load scoring rules.'); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -451,15 +466,16 @@ function ScoringPanel() {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this scoring rule?')) return;
-    try { await deleteScoringRule(id); if (editId === id) resetForm(); await load(); } catch {}
+    try { await deleteScoringRule(id); if (editId === id) resetForm(); await load(); } catch (e) { alert('Failed: ' + e.message); }
   };
 
   const handleToggle = async (r) => {
-    try { await updateScoringRule(r.id, { active: !r.active }); await load(); } catch {}
+    try { await updateScoringRule(r.id, { active: !r.active }); await load(); } catch (e) { alert('Failed: ' + e.message); }
   };
 
   return (
     <>
+      <LoadError message={loadError} onRetry={load} />
       <div className="card" style={{ marginBottom: 24 }}>
         <h2>{editId ? 'Edit Scoring Rule' : 'Create Scoring Rule'}</h2>
         <form onSubmit={handleSubmit} style={{ marginTop: 12 }}>
@@ -532,9 +548,11 @@ function ScoringPanel() {
 function PreferencesPanel() {
   const [prefs, setPrefs] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   const load = useCallback(async () => {
-    try { const p = await getPreferences(); setPrefs(p); } catch {}
+    try { setLoadError(null); const p = await getPreferences(); setPrefs(p); }
+    catch (e) { setLoadError(e.message || 'Failed to load preferences.'); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -548,7 +566,13 @@ function PreferencesPanel() {
     finally { setSaving(false); }
   };
 
-  if (!prefs) return <div className="card"><p className="subtitle">Loading preferences...</p></div>;
+  if (!prefs) return (
+    <div className="card">
+      {loadError
+        ? <LoadError message={loadError} onRetry={load} />
+        : <p className="subtitle">Loading preferences...</p>}
+    </div>
+  );
 
   return (
     <div className="card">

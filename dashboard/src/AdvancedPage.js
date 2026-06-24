@@ -5,7 +5,7 @@ import {
   getNegotiations, createNegotiation,
   getApprovalChains, createApprovalChain, processApprovalStep,
   getCounterpartyLinks, createCounterpartyLink,
-  getVendorAssessments, createVendorAssessment,
+  getVendorAssessments, createVendorAssessment, getVendorRisk,
   getBoardReport, getCertificates, issueCertificate, getEvidenceTrail,
   getBenchmarks, refreshBenchmarks,
   getIntegrations as fetchIntegrations, saveIntegration, deleteIntegration, testIntegrationNotify,
@@ -459,6 +459,7 @@ function VendorsTab() {
   const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
+  const [riskById, setRiskById] = useState({});
 
   useEffect(() => { load(); }, []);
 
@@ -466,6 +467,18 @@ function VendorsTab() {
     setLoading(true);
     try { const r = await getVendorAssessments(); setAssessments(r.assessments || []); } catch (e) { console.error(e); }
     setLoading(false);
+  };
+
+  const loadRisk = async (vendorEntryId) => {
+    if (riskById[vendorEntryId] === 'loading') return;
+    setRiskById(prev => ({ ...prev, [vendorEntryId]: 'loading' }));
+    try {
+      const r = await getVendorRisk(vendorEntryId);
+      setRiskById(prev => ({ ...prev, [vendorEntryId]: r }));
+    } catch (e) {
+      setRiskById(prev => ({ ...prev, [vendorEntryId]: null }));
+      alert('Unified risk failed: ' + e.message);
+    }
   };
 
   const create = async () => {
@@ -493,15 +506,37 @@ function VendorsTab() {
           </div>
           {(a.vendors || []).length > 0 && (
             <table className="scores-table" style={{ marginTop: 12 }}>
-              <thead><tr><th>Vendor</th><th>Status</th><th>Risk Score</th><th>Risk Level</th></tr></thead>
-              <tbody>{a.vendors.map(v => (
-                <tr key={v.id}>
+              <thead><tr><th>Vendor</th><th>Status</th><th>Risk Score</th><th>Risk Level</th><th>Unified Risk</th></tr></thead>
+              <tbody>{a.vendors.map(v => {
+                const risk = riskById[v.id];
+                return (
+                <React.Fragment key={v.id}>
+                <tr>
                   <td style={{ fontWeight: 600 }}>{v.vendorName}</td>
                   <td><span className="legal-clause-tag">{v.status}</span></td>
                   <td>{v.riskScore ?? '—'}</td>
                   <td>{v.riskLevel ? <span className={`legal-severity ${v.riskLevel === 'Critical' || v.riskLevel === 'High' ? 'critical' : v.riskLevel === 'Medium' ? 'medium' : 'low'}`}>{v.riskLevel}</span> : '—'}</td>
+                  <td>
+                    {risk && risk !== 'loading'
+                      ? <span className={`legal-severity ${risk.level === 'Critical' || risk.level === 'High' ? 'critical' : risk.level === 'Moderate' ? 'medium' : 'low'}`}>{risk.overall} {risk.level}</span>
+                      : <button className="action-btn" disabled={risk === 'loading'} onClick={() => loadRisk(v.id)}>{risk === 'loading' ? '…' : 'Fuse'}</button>}
+                  </td>
                 </tr>
-              ))}</tbody>
+                {risk && risk !== 'loading' && (
+                  <tr>
+                    <td colSpan={5} style={{ background: 'rgba(255,255,255,0.02)' }}>
+                      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', padding: '4px 8px', fontSize: 13 }}>
+                        <span title="DPA / contract audit risk">Contract: <strong>{risk.dimensions.contract.score}</strong> ({risk.dimensions.contract.level})</span>
+                        <span title="VEX affected vulnerabilities weighted by EPSS exploit probability">Supply-chain: <strong>{risk.dimensions.supplyChain.score}</strong> ({risk.dimensions.supplyChain.affectedVulnerabilities} affected vuln{risk.dimensions.supplyChain.affectedVulnerabilities === 1 ? '' : 's'})</span>
+                        <span title="Blocked / review-pending licenses">Licenses: <strong>{risk.dimensions.license.score}</strong> ({risk.dimensions.license.blocked} blocked)</span>
+                        <span style={{ color: 'var(--text-secondary)' }}>Top driver: {risk.topDrivers[0]?.dimension}</span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
+                );
+              })}</tbody>
             </table>
           )}
         </div>

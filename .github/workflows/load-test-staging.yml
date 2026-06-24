@@ -1,0 +1,62 @@
+name: k6 load test (staging, on-demand)
+
+# Manual-only. Creates 25 fake users + 100 concurrent VUs against staging.
+# DO NOT run against production.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Staging API URL'
+        required: true
+        default: 'https://api-staging.auleg.com'
+      duration_minutes:
+        description: 'Total duration in minutes (default scenario is ~5.5 min)'
+        required: false
+        default: '6'
+
+permissions:
+  contents: read
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard against production targeting
+        shell: bash
+        run: |
+          BASE_URL="${{ github.event.inputs.base_url }}"
+          if [[ "$BASE_URL" != *"staging"* ]]; then
+            echo "::error::Refusing to load-test non-staging URL: $BASE_URL"
+            exit 1
+          fi
+          if [[ "$BASE_URL" == "https://api.auleg.com"* ]]; then
+            echo "::error::Refusing to load-test production"
+            exit 1
+          fi
+          echo "Target OK: $BASE_URL"
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: Run load test
+        env:
+          BASE_URL: ${{ github.event.inputs.base_url }}
+        run: k6 run --env BASE_URL="$BASE_URL" tests/load/k6-load-test.js
+
+      - name: Upload load test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-report-${{ github.run_id }}
+          path: load-test-report.json
+          if-no-files-found: ignore
+          retention-days: 30

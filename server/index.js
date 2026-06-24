@@ -13,6 +13,12 @@ const requestLogger = require('./middleware/request-logger');
 const { sanitizeBody } = require('./middleware/validate');
 const logger = require('./lib/logger');
 const { register: metricsRegistry, metricsMiddleware } = require('./lib/metrics');
+const { tenantRateLimiter, auditRateLimiter, injectTenantPlan } = require('./middleware/tenant-rate-limit');
+const prisma = require('./lib/prisma');
+const errorTracking = require('./lib/error-tracking');
+
+// Initialize error tracking (Sentry) early
+errorTracking.init();
 
 // Validate configuration before starting
 const configResult = validateEnv();
@@ -48,22 +54,34 @@ const dataResidencyRoutes = require('./routes/data-residency');
 const vexRoutes = require('./routes/vex');
 const epssRoutes = require('./routes/epss');
 const licenseRoutes = require('./routes/licenses');
+const mfaRoutes = require('./routes/mfa');
+const complianceRoutes = require('./routes/compliance');
+const memoryRoutes = require('./routes/memory');
+const vendorRiskRoutes = require('./routes/vendor-risk');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 const jsonParser = express.json({ limit: '10mb' });
 
+// Sentry request handler (must be first middleware)
+app.use(errorTracking.requestHandler());
+
 // Security
+const isProduction = process.env.NODE_ENV === 'production';
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],  // swagger-ui needs inline scripts
+      // Swagger UI (dev only) needs inline scripts. Production serves JSON and
+      // disables Swagger, so no inline scripts are allowed there.
+      scriptSrc: isProduction ? ["'self'"] : ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:']
     }
   },
-  crossOriginEmbedderPolicy: false  // allow swagger-ui assets
+  crossOriginEmbedderPolicy: false,  // allow swagger-ui assets (dev)
+  // HSTS is only meaningful over HTTPS — enable in production only.
+  hsts: isProduction ? { maxAge: 63072000, includeSubDomains: true, preload: true } : false
 }));
 // CORS — guard against wildcard with credentials
 const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000';
@@ -125,6 +143,11 @@ const authLimiter = rateLimit({
 app.use('/api/', apiLimiter);
 app.use('/api/auth', authLimiter);
 
+// Per-tenant rate limiting (org-aware, plan-based)
+app.use('/api/', injectTenantPlan(prisma));
+app.use('/api/', tenantRateLimiter());
+app.use('/api/audits', auditRateLimiter());
+
 // Swagger — disabled in production
 if (process.env.NODE_ENV !== 'production') {
   const swaggerSpec = swaggerJsdoc({
@@ -178,6 +201,10 @@ app.use('/api/data-residency', dataResidencyRoutes);
 app.use('/api/vex', vexRoutes);
 app.use('/api/epss', epssRoutes);
 app.use('/api/licenses', licenseRoutes);
+app.use('/api/mfa', mfaRoutes);
+app.use('/api/compliance', complianceRoutes);
+app.use('/api/memory', memoryRoutes);
+app.use('/api/vendor-risk', vendorRiskRoutes);
 app.use('/api/v1', publicApiV1);
 
 // Prometheus metrics endpoint (internal, not rate-limited)
@@ -197,9 +224,15 @@ app.use((req, res) => {
 });
 
 // Structured error handler
+app.use(errorTracking.expressErrorHandler());
 app.use((err, req, res, next) => {
   const status = err.status || err.statusCode || 500;
   const isDev = process.env.NODE_ENV === 'development';
+
+  // Capture 5xx errors in Sentry
+  if (status >= 500) {
+    errorTracking.captureException(err, { reqId: req.id, path: req.originalUrl });
+  }
 
   // Log full error server-side
   logger.error({
@@ -224,14 +257,14 @@ const server = app.listen(PORT, async () => {
   logger.info({ port: PORT, env: process.env.NODE_ENV }, 'Auleg API running');
   logger.info({ url: `http://localhost:${PORT}/api/docs` }, 'API docs');
 
-  // Auto-seed the legal knowledge base
-  try {
-    const { seedLegalDatabase } = require('./lib/legal-knowledge');
-    const result = await seedLegalDatabase();
-    logger.info(result, 'Legal KB seeded');
-  } catch (err) {
-    logger.error({ err: err.message }, 'Legal KB seed error');
-  }
+  // Auto-seed the legal knowledge base (cluster/multi-instance safe, run-once)
+  const { seedLegalKbOnce } = require('./lib/startup');
+  await seedLegalKbOnce(prisma);
+
+  // Durable recurring jobs (trial expiry) — BullMQ when Redis is available,
+  // interval fallback in dev. Replaces per-worker setInterval timers.
+  const { initScheduler } = require('./lib/scheduler');
+  await initScheduler().catch(err => logger.error({ err: err.message }, 'Scheduler init failed'));
 });
 
 // Graceful shutdown
@@ -247,6 +280,8 @@ function gracefulShutdown(signal) {
       await shutdownWorker();
       const { shutdownEmailQueue } = require('./lib/email');
       await shutdownEmailQueue();
+      const { shutdownScheduler } = require('./lib/scheduler');
+      await shutdownScheduler();
       logger.info('Job queues shut down');
     } catch (err) {
       logger.error({ err: err.message }, 'Error shutting down queues');

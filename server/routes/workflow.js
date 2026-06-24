@@ -14,7 +14,7 @@ const {
   getVendorAssessments, getVendorAssessment
 } = require('../lib/workflow');
 const { enqueueAudit } = require('../lib/audit-worker');
-const { requireQuota, incrementUsage } = require('../lib/billing');
+const { incrementUsage } = require('../lib/billing');
 const { getScopedRecord, buildUserOrgScope } = require('../lib/access');
 
 const router = express.Router();
@@ -175,6 +175,9 @@ router.post('/counterparty/portal/:token/submit', upload.single('contract'), asy
     });
 
     enqueueAudit(audit.id, req.file.path, link.userId, null);
+    // Meter usage against the audit owner's quota (parity with /api/audits)
+    await incrementUsage(link.userId, 'audits');
+    await incrementUsage(link.userId, 'storage', req.file.size / (1024 * 1024));
     await submitCounterpartyDPA(req.params.token, req.file.path, audit.id);
 
     res.status(202).json({
@@ -236,6 +239,8 @@ router.post('/vendor-assessments/:id/vendors', authMiddleware, upload.array('con
 
       await updateVendorEntry(entry.id, { status: 'auditing', auditId: audit.id });
       enqueueAudit(audit.id, file.path, req.user.id, req.user.email);
+      await incrementUsage(req.user.id, 'audits');
+      await incrementUsage(req.user.id, 'storage', file.size / (1024 * 1024));
       entries.push({ ...entry, auditId: audit.id });
     }
 
@@ -303,6 +308,8 @@ router.post('/bundles', authMiddleware, upload.array('contracts', 10), async (re
       }
 
       enqueueAudit(audit.id, file.path, req.user.id, req.user.email);
+      await incrementUsage(req.user.id, 'audits');
+      await incrementUsage(req.user.id, 'storage', file.size / (1024 * 1024));
       files.push({ ...bundleFile, auditId: audit.id });
     }
 
