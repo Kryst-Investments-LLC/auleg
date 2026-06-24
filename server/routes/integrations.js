@@ -80,7 +80,7 @@ router.get('/sso', async (req, res, next) => {
 router.post('/sso', async (req, res, next) => {
   try {
     if (!req.user.orgId) return res.status(400).json({ error: 'Organization required for SSO' });
-    const { provider, entityId, ssoUrl, certificate, metadataUrl } = req.body;
+    const { provider, entityId, ssoUrl, certificate } = req.body;
     if (!provider || !entityId || !ssoUrl || !certificate) {
       return res.status(400).json({ error: 'provider, entityId, ssoUrl, and certificate required' });
     }

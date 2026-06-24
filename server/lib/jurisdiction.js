@@ -10,8 +10,6 @@
  * Then builds a cross-regulation compliance matrix.
  */
 
-const prisma = require('./prisma');
-
 const JURISDICTION_SIGNALS = {
   GDPR: {
     keywords: ['gdpr', 'general data protection regulation', 'eu regulation 2016/679', 'article 28', 'article 32', 'article 33', 'eea', 'european economic area'],

@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const prisma = require('../lib/prisma');
-const logger = require('../lib/logger');
 
 const startedAt = new Date().toISOString();
 

@@ -6,7 +6,6 @@
  * Slack/Teams notifications, and SSO/SAML config.
  */
 
-const crypto = require('crypto');
 const prisma = require('./prisma');
 const { buildUserOrgScope, notFound } = require('./access');
 const { normalizeAndValidateOutboundUrl } = require('./url-security');
