@@ -800,6 +800,11 @@ export async function getBundles() {
   return apiFetch('/workflow/bundles');
 }
 
+// --- Unified Vendor Risk (DPA + supply-chain) ---
+export async function getVendorRisk(vendorEntryId) {
+  return apiFetch(`/vendor-risk/${vendorEntryId}`);
+}
+
 export async function getBundle(id) {
   return apiFetch(`/workflow/bundles/${id}`);
 }
